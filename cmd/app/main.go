@@ -14,6 +14,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -272,6 +273,14 @@ func call_tool(call response.ToolCallChoice) ([]byte, error) {
 			return nil, err
 		}
 		return writeFile(args)
+	} else if call.Function.Name == "git_do" {
+		var args GitDoArgs
+		if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
+			return nil, err
+		}
+		return gitDo(args)
+	} else if call.Function.Name == "git_diff" {
+		return gitDiff()
 	} else {
 		return nil, errors.New("tool nicht gefunden")
 	}
@@ -330,4 +339,56 @@ func replaceFileContent(args ReplaceFileContentArgs) ([]byte, error) {
 	}
 
 	return json.Marshal(StatusResponse{Status: "OK", Messsage: "Replacement erfolgreich"})
+}
+
+type GitDoArgs struct {
+	CommitMessage string `json:"commit_message"`
+}
+
+func gitDo(args GitDoArgs) ([]byte, error) {
+	// Führe git add . aus
+	if err := runCommand("git", "add", "."); err != nil {
+		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
+		return status, err
+	}
+
+	// Führe git commit aus
+	if err := runCommand("git", "commit", "-m", args.CommitMessage); err != nil {
+		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
+		return status, err
+	}
+
+	// Führe git push aus
+	if err := runCommand("git", "push", "origin"); err != nil {
+		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
+		return status, err
+	}
+
+	return json.Marshal(StatusResponse{Status: "OK", Messsage: "Git-Operationen erfolgreich ausgeführt"})
+}
+
+func runCommand(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("Fehler beim Ausführen von %s: %v (stderr: %s)", name, err, stderr.String())
+	}
+
+	return nil
+}
+
+func gitDiff() ([]byte, error) {
+	cmd := exec.Command("git", "diff", "HEAD")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return nil, fmt.Errorf("Fehler beim Ausführen von git diff: %v (stderr: %s)", err, stderr.String())
+	}
+
+	return stdout.Bytes(), nil
 }

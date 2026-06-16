@@ -99,5 +99,37 @@ func GetTools() []request.Tool {
 				},
 			},
 		},
+		{
+			Type: "function",
+			Function: request.ToolFunction{
+				Name:        "git_do",
+				Description: "Fügt den aktuellen Stand zu Git hinzu, commitet und pusht nach origin",
+				Parameters: request.FunctionParams{
+					Type: "object",
+					Properties: map[string]request.ArgumentProperty{
+						"commit_message": {
+							Type:        "string",
+							Name:        "commit_message",
+							Description: "Die Commit-Nachricht für den Git-Commit.",
+						},
+					},
+					Required: []string{
+						"commit_message",
+					},
+				},
+			},
+		},
+		{
+			Type: "function",
+			Function: request.ToolFunction{
+				Name:        "git_diff",
+				Description: "Zeigt die Änderungen seit dem letzten Commit an",
+				Parameters: request.FunctionParams{
+					Type:       "object",
+					Properties: map[string]request.ArgumentProperty{},
+					Required:   []string{},
+				},
+			},
+		},
 	}
 }
