@@ -19,17 +19,15 @@ import (
 type ChatService struct {
 	apiKey      string
 	client      *http.Client
-	chat        []*request.Message
+	chatContext *ChatContext
 	newMessages []*request.Message
 }
 
 func NewChatService(apiKey string) *ChatService {
 	return &ChatService{
-		apiKey: apiKey,
-		client: &http.Client{},
-		chat: []*request.Message{
-			{Role: "system", Content: "Du bist ein hilfreicher Agent bei der Programmierung von golang apps."},
-		},
+		apiKey:      apiKey,
+		client:      &http.Client{},
+		chatContext: NewChatContext(),
 		newMessages: []*request.Message{},
 	}
 }
@@ -37,9 +35,9 @@ func NewChatService(apiKey string) *ChatService {
 func (cs *ChatService) StartChat() {
 	for {
 		if len(cs.newMessages) == 0 {
-			cs.chat = append(cs.chat, cs.getUserMessage("Was ist dein Begehr"))
+			cs.chatContext.AddMessage(cs.getUserMessage("Was ist dein Begehr"))
 		} else {
-			cs.chat = append(cs.chat, cs.newMessages...)
+			cs.chatContext.AddMessages(cs.newMessages)
 			cs.newMessages = []*request.Message{}
 		}
 
@@ -54,7 +52,7 @@ func (cs *ChatService) processChatCompletion() error {
 	jsonData, err := json.Marshal(&request.ChatCompletion{
 		Model:    "devstral-medium-latest",
 		Stream:   true,
-		Messages: cs.chat,
+		Messages: cs.chatContext.GetMessages(),
 		Tools:    tools.GetTools(),
 	})
 
@@ -101,7 +99,7 @@ func (cs *ChatService) processChatCompletion() error {
 		Role: "assistant",
 	}
 
-	cs.chat = append(cs.chat, responseMessage)
+	cs.chatContext.AddMessage(responseMessage)
 
 	var builder strings.Builder
 
