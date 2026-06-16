@@ -28,71 +28,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	tools := []request.Tool{{
-		Type: "function",
-		Function: request.ToolFunction{
-			Name:        "list_files",
-			Description: "Gibt eine Liste mit allen Dateien im Projekt zurück",
-			Parameters: request.FunctionParams{
-				Type:       "object",
-				Properties: map[string]request.ArgumentProperty{},
-				Required:   []string{},
-			},
-		},
-	}, {
-		Type: "function",
-		Function: request.ToolFunction{
-			Name:        "read_file",
-			Description: "Liest den Inhalt einer Datei",
-			Parameters: request.FunctionParams{
-				Type: "object",
-				Properties: map[string]request.ArgumentProperty{
-					"path": {
-						Type:        "string",
-						Name:        "path",
-						Description: "Path",
-					},
-				},
-				Required: []string{
-					"path",
-				},
-			},
-		},
-	}, {
-		Type: "function",
-		Function: request.ToolFunction{
-			Name:        "replace_file_content",
-			Description: "Ersetzt einen Teil des Inhalts einer Datei",
-			Parameters: request.FunctionParams{
-				Type: "object",
-				Properties: map[string]request.ArgumentProperty{
-					"path": {
-						Type:        "string",
-						Name:        "path",
-						Description: "Pfad zur Datei, die bearbeitet werden soll.",
-					},
-					"old_content": {
-						Type:        "string",
-						Name:        "Pfad zur Datei, die bearbeitet werden soll.",
-						Description: "Path",
-					},
-					"new_content": {
-						Type:        "string",
-						Name:        "new_content",
-						Description: "Der neue Text, der den alten ersetzen soll.",
-					},
-					"replace_all": {
-						Type:        "boolean",
-						Name:        "replace_all",
-						Description: "Wenn true, werden alle Vorkommen von old_content ersetzt. Andernfalls nur das erste.",
-					},
-				},
-				Required: []string{
-					"path", "new_content", "old_content",
-				},
-			},
-		},
-	}}
+	tools := GetTools()
 
 	chat := []*request.Message{
 		{Role: "system", Content: "Du bist ein hilfreicher Agent bei der Programmierung von golang apps."},
@@ -331,9 +267,30 @@ func call_tool(call response.ToolCallChoice) ([]byte, error) {
 			return nil, err
 		}
 		return json.Marshal(files)
+	} else if call.Function.Name == "write_file" {
+		var args WriteFileArgs
+		if err := json.Unmarshal([]byte(call.Function.Arguments), &args); err != nil {
+			return nil, err
+		}
+		return writeFile(args)
 	} else {
 		return nil, errors.New("tool nicht gefunden")
 	}
+}
+
+type WriteFileArgs struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+}
+
+func writeFile(args WriteFileArgs) ([]byte, error) {
+	// Schreibe den Inhalt in die Datei
+	err := os.WriteFile(args.Path, []byte(args.Content), 0644)
+	if err != nil {
+		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
+		return status, err
+	}
+	return json.Marshal(StatusResponse{Status: "OK", Messsage: "Datei erfolgreich geschrieben oder erstellt"})
 }
 
 type StatusResponse struct {

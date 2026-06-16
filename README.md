@@ -21,6 +21,9 @@ Dieses Projekt ist ein Experiment, um zu untersuchen, wie gut sich ein Bot mit C
 - **Kubernetes** (optional): Für die Orchestrierung von Containern in größeren Umgebungen.
 - **gRPC oder REST-APIs**: Für die Kommunikation zwischen dem Bot und den Containern.
 
+## Tools
+- **Dateiverwaltung**: Ein Tool zum Schreiben, Überschreiben und Anlegen von Dateien in Containern.
+
 ## Nächste Schritte
 1. Entwicklung eines Prototyps für die Bot-Steuerung.
 2. Integration von Docker für das Container-Sandboxing.
