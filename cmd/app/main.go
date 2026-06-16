@@ -18,8 +18,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	chatService := service.NewChatService(apiKey)
-	chatService.StartChat()
+	cliController := service.NewCLIController(apiKey)
+	cliController.StartChat()
 }
 
 func loadEnv() {

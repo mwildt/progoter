@@ -12,36 +12,22 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 )
 
 type ChatService struct {
-	apiKey      string
-	client      *http.Client
-	chatContext *ChatContext
+	apiKey string
+	client *http.Client
 }
 
 func NewChatService(apiKey string) *ChatService {
 	return &ChatService{
-		apiKey:      apiKey,
-		client:      &http.Client{},
-		chatContext: NewChatContext(),
+		apiKey: apiKey,
+		client: &http.Client{},
 	}
 }
 
-func (cs *ChatService) StartChat() {
-	for {
-		cs.chatContext.AddMessage(cs.getUserMessage("Was ist dein Begehr"))
-
-		var err error
-		cs.chatContext, err = cs.CompleteContext(cs.chatContext)
-		if err != nil {
-			slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", err)
-		}
-	}
-}
-
+// CompleteContext vervollständigt den ChatContext mit einer Antwort vom API.
 func (cs *ChatService) CompleteContext(chatContext *ChatContext) (*ChatContext, error) {
 	for {
 		jsonData, err := json.Marshal(&request.ChatCompletion{
@@ -158,9 +144,7 @@ func (cs *ChatService) CompleteContext(chatContext *ChatContext) (*ChatContext, 
 					default:
 						fmt.Printf("Unknown type %v\n", completition.Choices[0].Delta.Content)
 					}
-
 				}
-
 			}
 		}
 
@@ -180,16 +164,7 @@ func (cs *ChatService) CompleteContext(chatContext *ChatContext) (*ChatContext, 
 	return chatContext, nil
 }
 
-func (cs *ChatService) getUserMessage(s string) *request.Message {
-	reader := bufio.NewReader(os.Stdin)
-	println(s)
-	input, _ := reader.ReadString('\n')
-	return &request.Message{
-		Role:    "user",
-		Content: input,
-	}
-}
-
+// callTool ruft ein Tool auf und gibt das Ergebnis zurück.
 func (cs *ChatService) callTool(call response.ToolCallChoice) ([]byte, error) {
 
 	slog.Default().Info("Tool Call", "tool", call.Function.Name, "call_id", call.Id)
