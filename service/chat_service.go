@@ -28,7 +28,7 @@ func NewChatService(apiKey string) *ChatService {
 }
 
 // CompleteContext vervollständigt den ChatContext mit einer Antwort vom API.
-func (cs *ChatService) CompleteContext(chatContext *ChatContext) (*ChatContext, error) {
+func (cs *ChatService) CompleteContext(chatContext *ChatContext, messageChan chan *request.Message) (*ChatContext, error) {
 	for {
 		jsonData, err := json.Marshal(&request.ChatCompletion{
 			Model:    "devstral-medium-latest",
@@ -132,17 +132,20 @@ func (cs *ChatService) CompleteContext(chatContext *ChatContext) (*ChatContext, 
 					}
 
 				default:
-					switch first.Delta.Content.(type) {
+					switch content := first.Delta.Content.(type) {
 					case map[string]any:
-						fmt.Printf("MAP %v\n", completition.Choices[0].Delta.Content)
+						fmt.Printf("MAP %v\n", content)
 					case []any:
-						fmt.Printf("LIST %v\n", completition.Choices[0].Delta.Content)
+						fmt.Printf("LIST %v\n", content)
 					case string:
-						fmt.Print(completition.Choices[0].Delta.Content.(string))
-						builder.WriteString(completition.Choices[0].Delta.Content.(string))
+						messageChan <- &request.Message{
+							Role:    "assistant",
+							Content: content,
+						}
+						builder.WriteString(content)
 
 					default:
-						fmt.Printf("Unknown type %v\n", completition.Choices[0].Delta.Content)
+						fmt.Printf("Unknown type %v\n", content)
 					}
 				}
 			}

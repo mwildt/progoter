@@ -255,7 +255,7 @@ func getGitDoTool() request.Tool {
 		Type: "function",
 		Function: request.ToolFunction{
 			Name:        "git_do",
-			Description: "Fügt den aktuellen Stand zu Git hinzu, commitet und pusht nach origin",
+			Description: "Fügt den aktuellen Stand zu Git hinzu, commited und pusht nach origin",
 			Parameters: request.FunctionParams{
 				Type: "object",
 				Properties: map[string]request.ArgumentProperty{
