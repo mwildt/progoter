@@ -6,12 +6,13 @@ import (
 	"github.com/mwildt/progoter/request"
 	"log/slog"
 	"os"
+	"strings"
 )
 
 type CLIController struct {
-	chatService  *ChatService
-	chatContext  *ChatContext
-	messageChan  chan *request.Message
+	chatService *ChatService
+	chatContext *ChatContext
+	messageChan chan *request.Message
 }
 
 func NewCLIController(apiKey string) *CLIController {
@@ -38,10 +39,36 @@ func (cc *CLIController) StartChat() {
 
 // listenForMessages hört auf Nachrichten im Channel und gibt sie aus.
 func (cc *CLIController) listenForMessages() {
+	var lastRole string
 	for msg := range cc.messageChan {
-		fmt.Print(msg.Content)
+		if len(strings.TrimSpace(msg.Content)) == 0 {
+			continue
+		}
+		if msg.Role != lastRole {
+			color := getColorForRole(msg.Role)
+			fmt.Printf("\n%s##########################\n[%s]\n%s", color, msg.Role, resetColor)
+			lastRole = msg.Role
+		}
+		color := getColorForRole(msg.Role)
+		fmt.Printf("%s%s%s", color, msg.Content, resetColor)
 	}
 }
+
+// getColorForRole gibt den ANSI-Farbcode für die gegebene Rolle zurück.
+func getColorForRole(role string) string {
+	switch role {
+	case "user":
+		return "\033[32m" // Grün für Benutzer
+	case "assistant":
+		return "\033[34m" // Blau für Assistent
+	case "tool":
+		return "\033[38;5;208m" // Orange für Tool
+	default:
+		return "\033[0m" // Standardfarbe für unbekannte Rollen
+	}
+}
+
+const resetColor = "\033[0m"
 
 // getUserMessage liest eine Nachricht vom Benutzer.
 func (cc *CLIController) getUserMessage(s string) *request.Message {

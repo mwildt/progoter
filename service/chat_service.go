@@ -115,6 +115,12 @@ func (cs *ChatService) CompleteContext(chatContext *ChatContext, messageChan cha
 					responseMessage.ToolCalls = append(responseMessage.ToolCalls, first.Delta.ToolCalls...)
 
 					for _, toolCall := range first.Delta.ToolCalls {
+						// Sende den Tool-Call an den messageChan
+						messageChan <- &request.Message{
+							Role:    "tool-request",
+							Content: fmt.Sprintf("Tool-Call: %s mit ID %s", toolCall.Function.Name, toolCall.Id),
+						}
+
 						msg, err := cs.callTool(toolCall)
 						if err != nil {
 							chatContext.AddMessage(&request.Message{
@@ -122,12 +128,22 @@ func (cs *ChatService) CompleteContext(chatContext *ChatContext, messageChan cha
 								ToolCallId: toolCall.Id,
 								Content:    fmt.Sprintf("Beim Aufruf des Tools ist ein fehler aufgetreten. (error: %v)", err),
 							})
+							// Sende die Fehlermeldung an den messageChan
+							messageChan <- &request.Message{
+								Role:    "tool",
+								Content: fmt.Sprintf("Fehler beim Aufruf des Tools: %v", err),
+							}
 						} else {
 							chatContext.AddMessage(&request.Message{
 								Role:       "tool",
 								ToolCallId: toolCall.Id,
 								Content:    string(msg),
 							})
+							// Sende die Tool-Antwort an den messageChan
+							messageChan <- &request.Message{
+								Role:    "tool",
+								Content: string(msg),
+							}
 						}
 					}
 
