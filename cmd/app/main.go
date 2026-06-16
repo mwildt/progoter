@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mwildt/progoter/request"
+	"github.com/mwildt/progoter/response"
+	"github.com/mwildt/progoter/tools"
 	"io"
 	"io/ioutil"
 	"log/slog"
@@ -13,8 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"wib/request"
-	"wib/response"
 )
 
 func main() {
@@ -27,8 +28,6 @@ func main() {
 		slog.Error("MISTRAL_API_KEY ist nicht in der .env-Datei gesetzt")
 		os.Exit(1)
 	}
-
-	tools := GetTools()
 
 	chat := []*request.Message{
 		{Role: "system", Content: "Du bist ein hilfreicher Agent bei der Programmierung von golang apps."},
@@ -53,7 +52,7 @@ func main() {
 			Model:    "devstral-medium-latest",
 			Stream:   true,
 			Messages: chat,
-			Tools:    tools,
+			Tools:    tools.GetTools(),
 		})
 
 		if err != nil {

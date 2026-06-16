@@ -1,6 +1,6 @@
 package request
 
-import "wib/response"
+import "github.com/mwildt/progoter/response"
 
 type Message struct {
 	Role       string                    `json:"role"`

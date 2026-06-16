@@ -1,7 +1,7 @@
-package main
+package tools
 
 import (
-	"wib/request"
+	"github.com/mwildt/progoter/request"
 )
 
 // GetTools liefert die Liste der verfügbaren Tools
