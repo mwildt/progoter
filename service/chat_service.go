@@ -20,7 +20,6 @@ type ChatService struct {
 	apiKey      string
 	client      *http.Client
 	chatContext *ChatContext
-	newMessages []*request.Message
 }
 
 func NewChatService(apiKey string) *ChatService {
@@ -28,155 +27,157 @@ func NewChatService(apiKey string) *ChatService {
 		apiKey:      apiKey,
 		client:      &http.Client{},
 		chatContext: NewChatContext(),
-		newMessages: []*request.Message{},
 	}
 }
 
 func (cs *ChatService) StartChat() {
 	for {
-		if len(cs.newMessages) == 0 {
-			cs.chatContext.AddMessage(cs.getUserMessage("Was ist dein Begehr"))
-		} else {
-			cs.chatContext.AddMessages(cs.newMessages)
-			cs.newMessages = []*request.Message{}
-		}
+		cs.chatContext.AddMessage(cs.getUserMessage("Was ist dein Begehr"))
 
-		err := cs.processChatCompletion()
+		var err error
+		cs.chatContext, err = cs.CompleteContext(cs.chatContext)
 		if err != nil {
 			slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", err)
 		}
 	}
 }
 
-func (cs *ChatService) processChatCompletion() error {
-	jsonData, err := json.Marshal(&request.ChatCompletion{
-		Model:    "devstral-medium-latest",
-		Stream:   true,
-		Messages: cs.chatContext.GetMessages(),
-		Tools:    tools.GetTools(),
-	})
-
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequest("POST", "https://api.mistral.ai/v1/chat/completions", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cs.apiKey))
-	req.Header.Set("Accept", "text/event-stream")
-
-	slog.Default().Info("send completion request", "url", req.URL.String(), "jsonData", jsonData)
-
-	resp, err := cs.client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode >= 400 {
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			slog.Error("Fehler beim Lesen des Response-Body", "error", err)
-			resp.Body.Close()
-			return err
-		}
-
-		resp.Body = io.NopCloser(bytes.NewBuffer(body))
-
-		slog.Error("HTTP-Fehler", "status", resp.StatusCode, "body", string(body))
-		resp.Body.Close()
-		return errors.New("HTTP-Fehler")
-	}
-
-	reader := bufio.NewReader(resp.Body)
-
-	var completition response.CompletionChunk
-
-	responseMessage := &request.Message{
-		Role: "assistant",
-	}
-
-	cs.chatContext.AddMessage(responseMessage)
-
-	var builder strings.Builder
-
+func (cs *ChatService) CompleteContext(chatContext *ChatContext) (*ChatContext, error) {
 	for {
-		line, err := reader.ReadString('\n')
+		jsonData, err := json.Marshal(&request.ChatCompletion{
+			Model:    "devstral-medium-latest",
+			Stream:   true,
+			Messages: chatContext.GetMessages(),
+			Tools:    tools.GetTools(),
+		})
+
 		if err != nil {
-			break
+			return nil, err
 		}
 
-		line = strings.TrimSpace(line)
+		req, err := http.NewRequest("POST", "https://api.mistral.ai/v1/chat/completions", bytes.NewBuffer(jsonData))
+		if err != nil {
+			return nil, err
+		}
 
-		// SSE Format: "data: ..."
-		if strings.HasPrefix(line, "data:") {
-			data := strings.TrimPrefix(line, "data:")
-			data = strings.TrimSpace(data)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cs.apiKey))
+		req.Header.Set("Accept", "text/event-stream")
 
-			if data == "[DONE]" {
+		slog.Default().Info("send completion request", "url", req.URL.String(), "jsonData", jsonData)
+
+		resp, err := cs.client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode >= 400 {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				slog.Error("Fehler beim Lesen des Response-Body", "error", err)
+				resp.Body.Close()
+				return nil, err
+			}
+
+			resp.Body = io.NopCloser(bytes.NewBuffer(body))
+
+			slog.Error("HTTP-Fehler", "status", resp.StatusCode, "body", string(body))
+			resp.Body.Close()
+			return nil, errors.New("HTTP-Fehler")
+		}
+
+		reader := bufio.NewReader(resp.Body)
+
+		var completition response.CompletionChunk
+
+		responseMessage := &request.Message{
+			Role: "assistant",
+		}
+
+		chatContext.AddMessage(responseMessage)
+
+		var builder strings.Builder
+
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
 				break
 			}
 
-			err := json.Unmarshal([]byte(data), &completition)
-			if err != nil {
-				return err
-			}
+			line = strings.TrimSpace(line)
 
-			first := completition.Choices[0]
+			// SSE Format: "data: ..."
+			if strings.HasPrefix(line, "data:") {
+				data := strings.TrimPrefix(line, "data:")
+				data = strings.TrimSpace(data)
 
-			switch first.FinishReason {
-
-			case "tool_calls":
-
-				responseMessage.ToolCalls = append(responseMessage.ToolCalls, first.Delta.ToolCalls...)
-
-				for _, toolCall := range first.Delta.ToolCalls {
-					msg, err := cs.callTool(toolCall)
-					if err != nil {
-						cs.newMessages = append(cs.newMessages, &request.Message{
-							Role:       "tool",
-							ToolCallId: toolCall.Id,
-							Content:    fmt.Sprintf("Beim Aufruf des Tools ist ein fehler aufgetreten. (error: %v)", err),
-						})
-					} else {
-						cs.newMessages = append(cs.newMessages, &request.Message{
-							Role:       "tool",
-							ToolCallId: toolCall.Id,
-							Content:    string(msg),
-						})
-					}
+				if data == "[DONE]" {
+					break
 				}
 
-			default:
-				switch first.Delta.Content.(type) {
-				case map[string]any:
-					fmt.Printf("MAP %v\n", completition.Choices[0].Delta.Content)
-				case []any:
-					fmt.Printf("LIST %v\n", completition.Choices[0].Delta.Content)
-				case string:
-					fmt.Print(completition.Choices[0].Delta.Content.(string))
-					builder.WriteString(completition.Choices[0].Delta.Content.(string))
+				err := json.Unmarshal([]byte(data), &completition)
+				if err != nil {
+					return nil, err
+				}
+
+				first := completition.Choices[0]
+
+				switch first.FinishReason {
+
+				case "tool_calls":
+
+					responseMessage.ToolCalls = append(responseMessage.ToolCalls, first.Delta.ToolCalls...)
+
+					for _, toolCall := range first.Delta.ToolCalls {
+						msg, err := cs.callTool(toolCall)
+						if err != nil {
+							chatContext.AddMessage(&request.Message{
+								Role:       "tool",
+								ToolCallId: toolCall.Id,
+								Content:    fmt.Sprintf("Beim Aufruf des Tools ist ein fehler aufgetreten. (error: %v)", err),
+							})
+						} else {
+							chatContext.AddMessage(&request.Message{
+								Role:       "tool",
+								ToolCallId: toolCall.Id,
+								Content:    string(msg),
+							})
+						}
+					}
 
 				default:
-					fmt.Printf("Unknown type %v\n", completition.Choices[0].Delta.Content)
+					switch first.Delta.Content.(type) {
+					case map[string]any:
+						fmt.Printf("MAP %v\n", completition.Choices[0].Delta.Content)
+					case []any:
+						fmt.Printf("LIST %v\n", completition.Choices[0].Delta.Content)
+					case string:
+						fmt.Print(completition.Choices[0].Delta.Content.(string))
+						builder.WriteString(completition.Choices[0].Delta.Content.(string))
+
+					default:
+						fmt.Printf("Unknown type %v\n", completition.Choices[0].Delta.Content)
+					}
+
 				}
 
 			}
+		}
 
+		if builder.Len() > 0 {
+			println()
+			responseMessage.Content = builder.String()
+		}
+
+		resp.Body.Close()
+
+		// Beende die Schleife, wenn keine Tool-Calls mehr anstehen
+		if len(responseMessage.ToolCalls) == 0 {
+			break
 		}
 	}
 
-	if builder.Len() > 0 {
-		println()
-		responseMessage.Content = builder.String()
-	}
-
-	resp.Body.Close()
-
-	return nil
+	return chatContext, nil
 }
 
 func (cs *ChatService) getUserMessage(s string) *request.Message {
