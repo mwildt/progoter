@@ -2,14 +2,12 @@ package service
 
 import (
 	"github.com/mwildt/progoter/request"
-	"os"
-	"path/filepath"
-	"strings"
 )
 
 // ChatContext represents a collection of messages in a chat.
 type ChatContext struct {
-	Messages []*request.Message
+	Messages    []*request.Message
+	TotalTokens int
 }
 
 // NewChatContext creates a new ChatContext with an initial system message.
@@ -35,27 +33,6 @@ func (cc *ChatContext) AddMessage(message *request.Message) {
 // AddMessages adds multiple messages to the chat context.
 func (cc *ChatContext) AddMessages(messages []*request.Message) {
 	cc.Messages = append(cc.Messages, messages...)
-}
-
-// readSystemPrompt reads the system prompt from the prompts/system-default.md file.
-func readSystemPrompt() (string, error) {
-	// Get the current working directory
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	// Construct the path to the system prompt file
-	promptPath := filepath.Join(cwd, "prompts", "system-default.md")
-
-	// Read the file content
-	content, err := os.ReadFile(promptPath)
-	if err != nil {
-		return "", err
-	}
-
-	// Convert the content to a string and trim any leading/trailing whitespace
-	return strings.TrimSpace(string(content)), nil
 }
 
 // GetMessages returns all messages in the chat context.

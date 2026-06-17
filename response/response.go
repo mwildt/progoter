@@ -38,6 +38,7 @@ type CompletionChunk struct {
 	Created int64                   `json:"created"`
 	Model   string                  `json:"model"`
 	Choices []CompletionChunkChoice `json:"choices"`
+	Usage   Usage                   `json:"usage"`
 }
 
 type CompletionChunkChoice struct {

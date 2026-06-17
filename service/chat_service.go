@@ -164,6 +164,7 @@ func (cs *ChatService) CompleteContext(chatContext *ChatContext, messageChan cha
 						fmt.Printf("Unknown type %v\n", content)
 					}
 				}
+				chatContext.TotalTokens = completition.Usage.TotalTokens
 			}
 		}
 
