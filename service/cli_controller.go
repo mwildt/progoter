@@ -2,12 +2,14 @@ package service
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"github.com/mwildt/progoter/request"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type CLIController struct {
@@ -28,7 +30,28 @@ func NewCLIController(apiKey string) *CLIController {
 func (cc *CLIController) StartChat() {
 	go cc.listenForMessages()
 	for {
-		cc.chatContext.AddMessage(cc.getUserMessage("Was ist dein Begehr"))
+		input := cc.getUserMessage("Was ist dein Begehr")
+		inputContent := strings.TrimSpace(input.Content)
+
+		// Check if the user wants to compact the chat
+		if inputContent == "/compact" {
+			err := cc.CompactChat()
+			if err != nil {
+				slog.Error("Fehler beim Komprimieren des Chatverlaufs", "error", err)
+			}
+			continue
+		}
+
+		// Check if the user wants to dump the context
+		if inputContent == "/dump" {
+			err := cc.DumpContext()
+			if err != nil {
+				slog.Error("Fehler beim Speichern des Chat-Contexts", "error", err)
+			}
+			continue
+		}
+
+		cc.chatContext.AddMessage(input)
 
 		var err error
 		cc.chatContext, err = cc.chatService.CompleteContext(cc.chatContext, cc.messageChan)
@@ -43,15 +66,34 @@ func (cc *CLIController) StartChat() {
 func (cc *CLIController) CompactChat() error {
 	// Create a new message to request summarization
 	summarizeMessage := &request.Message{
-		Role:    "user",
-		Content: "Fasse den bisherigen Chatverlauf zusammen, um den Kontext zu komprimieren. Halte dabei die wichtigsten Informationen fest.",
+		Role: "user",
+		Content: `
+Fasse den bisherigen Chatverlauf zusammen. Ziel ist es, **alle fachlichen Informationen, Entscheidungen, Daten, Code-Snippets und Kontext** zu erhalten. Ignoriere dabei:
+- Smalltalk
+- Bestätigungen ("Ja", "Okay", "Verstanden")
+- Wiederholungen
+- Off-Topic-Diskussionen
+
+**Regeln:**
+0. Ignoriere System nachrichten .
+1. Behalte **technische Details, Anforderungen, Lösungsansätze und offene Fragen** bei.
+2. Strukturiere die Zusammenfassung nach Themen/Abschnitten (z. B. "Anforderungen", "Technische Umsetzung", "Offene Punkte").
+3. Verwende **die gleiche Terminologie** wie im Original.
+4. Falls Code oder Daten im Verlauf vorkommen: **Füge sie unverändert ein** (keine Paraphrasierung).
+5. Maximal 50 % der ursprünglichen Token-Anzahl.
+
+**Ausgabeformat:**
+- Knappe, klare Sätze.
+- Keine Erklärungen, warum etwas zusammengefasst wurde.
+- Keine Einleitungen wie "Hier ist die Zusammenfassung:".
+`,
 	}
 
 	// Add the summarize message to the current context
 	cc.chatContext.AddMessage(summarizeMessage)
 
-	// Create a channel for messages (not used here, but required by CompleteContext)
-	messageChan := make(chan *request.Message)
+	// No need for a message channel here as we don't stream messages to the user
+	var messageChan chan *request.Message = nil
 
 	// Request completion from the chat service
 	compactedContext, err := cc.chatService.CompleteContext(cc.chatContext, messageChan)
@@ -84,6 +126,36 @@ func (cc *CLIController) CompactChat() error {
 
 	cc.chatContext = newContext
 	fmt.Println("\nChatverlauf wurde erfolgreich komprimiert.")
+	return nil
+}
+
+// DumpContext speichert den aktuellen Chat-Context als JSON in einer Datei.
+func (cc *CLIController) DumpContext() error {
+	timestamp := time.Now().Format("20060102-150405")
+	filename := fmt.Sprintf("dumps/context.%s.json", timestamp)
+
+	// Erstelle das Verzeichnis, falls es nicht existiert
+	err := os.MkdirAll("dumps", os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("Fehler beim Erstellen des Verzeichnisses: %v", err)
+	}
+
+	// Öffne die Datei zum Schreiben
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("Fehler beim Erstellen der Datei: %v", err)
+	}
+	defer file.Close()
+
+	// Konvertiere den Chat-Context in JSON
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	err = encoder.Encode(cc.chatContext)
+	if err != nil {
+		return fmt.Errorf("Fehler beim Schreiben des JSON: %v", err)
+	}
+
+	fmt.Printf("\nChat-Context wurde erfolgreich in %s gespeichert.\n", filename)
 	return nil
 }
 
