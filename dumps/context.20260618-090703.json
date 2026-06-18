@@ -1,0 +1,68 @@
+{
+  "Messages": [
+    {
+      "role": "system",
+      "content": "Du bist ein präziser, effizienter Coding-Agent. Deine Aufgabe ist es, Softwareanfragen strukturiert und zielgerichtet umzusetzen.\n\n**Phasen:**\n1. **Anfrage analysieren:** Kläre Anforderungen, Ziele und Randbedingungen. Frage bei Unklarheiten nach.\n2. **Codebase und Doku analysieren:** Prüfe vorhandenen Code, Abhängigkeiten, Architektur und Dokumentation. Identifiziere Lücken oder Konflikte.\n3. **Plan erstellen:** Definiere klare, umsetzbare Schritte mit Prioritäten und Meilensteinen.\n4. **Umsetzen:** Schreibe sauberen, wartbaren Code (Standard: Go). Nutze bestehende Bibliotheken nur, wenn der Aufwand einer Eigenimplementierung zu groß wäre. Sei sparsam mit Abhängigkeiten.\n5. **Verifizieren:** Teste den Code (Unit/Integration), prüfe Edge Cases und validiere gegen die Anforderungen.\n\n**Regeln:**\n- Sei direkt und lösungsorientiert.\n- Kommuniziere Blockaden oder Abhängigkeiten sofort.\n- Dokumentiere Entscheidungen und Änderungen knapp im Code oder separater Readme.\n- Kein Over-Engineering. Bevorzuge einfache, robuste Lösungen.\n\nFalls du denselben Fehler zweimal machst, tritt einen schritt zurück und denke nochmal drüber nach, was genau zu tun ist."
+    },
+    {
+      "role": "user",
+      "content": "merk dir die Zahl 5."
+    },
+    {
+      "role": "assistant",
+      "content": "Verstanden, ich habe mir die Zahl 5 gemerkt. Wie kann ich dir weiterhelfen?"
+    },
+    {
+      "role": "user",
+      "content": "welche zahl hast du dir gemerkt."
+    },
+    {
+      "role": "assistant",
+      "content": "Ich habe mir die Zahl **5** gemerkt."
+    },
+    {
+      "role": "user",
+      "content": "welche zahl hast du dir gemerkt."
+    },
+    {
+      "role": "assistant",
+      "content": "Ich habe mir die Zahl **5** gemerkt."
+    },
+    {
+      "role": "user",
+      "content": "Kannst du den cli_controller so anpassen, dass pro aufruf von CompleteContext im default fall ein neuer channel erzeugt wird. Das muss ein, weil der Channel ja duch den servic egschlossen wird."
+    },
+    {
+      "role": "assistant",
+      "content": "Um diese Anforderung umzusetzen, benötige ich Zugriff auf den aktuellen Code des `cli_controller`, insbesondere auf die Methode `CompleteContext`. Bitte lade den relevanten Code hoch oder gib mir den Pfad zur Datei, damit ich die notwendigen Änderungen vornehmen kann."
+    },
+    {
+      "role": "user",
+      "content": "Dann schau dir den code da :) service/chat_service.go"
+    },
+    {
+      "role": "assistant",
+      "tool_calls": [
+        {
+          "id": "EOP8DSQOT",
+          "index": 0,
+          "type": "function",
+          "function": {
+            "arguments": "{\"path\": \"service/chat_service.go\"}",
+            "name": "read_file"
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "EOP8DSQOT",
+      "content": "package service\n\nimport (\n\t\"bufio\"\n\t\"bytes\"\n\t\"encoding/json\"\n\t\"errors\"\n\t\"fmt\"\n\t\"github.com/mwildt/progoter/request\"\n\t\"github.com/mwildt/progoter/response\"\n\t\"github.com/mwildt/progoter/tools\"\n\t\"io\"\n\t\"log/slog\"\n\t\"net/http\"\n\t\"strings\"\n)\n\ntype ChatService struct {\n\tapiKey string\n\tclient *http.Client\n}\n\nfunc NewChatService(apiKey string) *ChatService {\n\treturn \u0026ChatService{\n\t\tapiKey: apiKey,\n\t\tclient: \u0026http.Client{},\n\t}\n}\n\n// CompleteContext vervollständigt den ChatContext mit einer Antwort vom API.\nfunc (cs *ChatService) CompleteContext(chatContext *ChatContext, messageChan chan *request.Message) (*ChatContext, error) {\n\tdefer func() {\n\t\tif nil != messageChan {\n\t\t\tclose(messageChan)\n\t\t}\n\t}()\n\tfor {\n\t\tjsonData, err := json.Marshal(\u0026request.ChatCompletion{\n\t\t\tModel:    \"devstral-medium-latest\",\n\t\t\tStream:   true,\n\t\t\tMessages: chatContext.GetMessages(),\n\t\t\tTools:    tools.GetTools(),\n\t\t})\n\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\n\t\treq, err := http.NewRequest(\"POST\", \"https://api.mistral.ai/v1/chat/completions\", bytes.NewBuffer(jsonData))\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\n\t\treq.Header.Set(\"Content-Type\", \"application/json\")\n\t\treq.Header.Set(\"Authorization\", fmt.Sprintf(\"Bearer %s\", cs.apiKey))\n\t\treq.Header.Set(\"Accept\", \"text/event-stream\")\n\n\t\tslog.Default().Info(\"send completion request\", \"url\", req.URL.String(), \"jsonData\", jsonData)\n\n\t\tresp, err := cs.client.Do(req)\n\t\tif err != nil {\n\t\t\treturn nil, err\n\t\t}\n\n\t\tif resp.StatusCode \u003e= 400 {\n\t\t\tbody, err := io.ReadAll(resp.Body)\n\t\t\tif err != nil {\n\t\t\t\tslog.Error(\"Fehler beim Lesen des Response-Body\", \"error\", err)\n\t\t\t\tresp.Body.Close()\n\t\t\t\treturn nil, err\n\t\t\t}\n\n\t\t\tresp.Body = io.NopCloser(bytes.NewBuffer(body))\n\n\t\t\tslog.Error(\"HTTP-Fehler\", \"status\", resp.StatusCode, \"body\", string(body))\n\t\t\tresp.Body.Close()\n\t\t\treturn nil, errors.New(\"HTTP-Fehler\")\n\t\t}\n\n\t\treader := bufio.NewReader(resp.Body)\n\n\t\tvar completition response.CompletionChunk\n\n\t\tresponseMessage := \u0026request.Message{\n\t\t\tRole: \"assistant\",\n\t\t}\n\n\t\tchatContext.AddMessage(responseMessage)\n\n\t\tvar builder strings.Builder\n\n\t\tfor {\n\t\t\tline, err := reader.ReadString('\\n')\n\t\t\tif err != nil {\n\t\t\t\tbreak\n\t\t\t}\n\n\t\t\tline = strings.TrimSpace(line)\n\n\t\t\t// SSE Format: \"data: ...\"\n\t\t\tif strings.HasPrefix(line, \"data:\") {\n\t\t\t\tdata := strings.TrimPrefix(line, \"data:\")\n\t\t\t\tdata = strings.TrimSpace(data)\n\n\t\t\t\tif data == \"[DONE]\" {\n\t\t\t\t\tbreak\n\t\t\t\t}\n\n\t\t\t\terr := json.Unmarshal([]byte(data), \u0026completition)\n\t\t\t\tif err != nil {\n\t\t\t\t\treturn nil, err\n\t\t\t\t}\n\n\t\t\t\tfirst := completition.Choices[0]\n\n\t\t\t\tswitch first.FinishReason {\n\n\t\t\t\tcase \"tool_calls\":\n\n\t\t\t\t\tresponseMessage.ToolCalls = append(responseMessage.ToolCalls, first.Delta.ToolCalls...)\n\n\t\t\t\t\tfor _, toolCall := range first.Delta.ToolCalls {\n\t\t\t\t\t\t// Sende den Tool-Call an den messageChan, falls dieser nicht nil ist\n\t\t\t\t\t\tif messageChan != nil {\n\t\t\t\t\t\t\tmessageChan \u003c- \u0026request.Message{\n\t\t\t\t\t\t\t\tRole:    \"tool-request\",\n\t\t\t\t\t\t\t\tContent: fmt.Sprintf(\"Tool-Call: %s mit ID %s\", toolCall.Function.Name, toolCall.Id),\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\n\t\t\t\t\t\tmsg, err := cs.callTool(toolCall)\n\t\t\t\t\t\tif err != nil {\n\t\t\t\t\t\t\tchatContext.AddMessage(\u0026request.Message{\n\t\t\t\t\t\t\t\tRole:       \"tool\",\n\t\t\t\t\t\t\t\tToolCallId: toolCall.Id,\n\t\t\t\t\t\t\t\tContent:    fmt.Sprintf(\"Beim Aufruf des Tools ist ein fehler aufgetreten. (error: %v)\", err),\n\t\t\t\t\t\t\t})\n\t\t\t\t\t\t\t// Sende die Fehlermeldung an den messageChan, falls dieser nicht nil ist\n\t\t\t\t\t\t\tif messageChan != nil {\n\t\t\t\t\t\t\t\tmessageChan \u003c- \u0026request.Message{\n\t\t\t\t\t\t\t\t\tRole:    \"tool\",\n\t\t\t\t\t\t\t\t\tContent: fmt.Sprintf(\"Fehler beim Aufruf des Tools: %v\", err),\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t} else {\n\t\t\t\t\t\t\tchatContext.AddMessage(\u0026request.Message{\n\t\t\t\t\t\t\t\tRole:       \"tool\",\n\t\t\t\t\t\t\t\tToolCallId: toolCall.Id,\n\t\t\t\t\t\t\t\tContent:    string(msg),\n\t\t\t\t\t\t\t})\n\t\t\t\t\t\t\t// Sende die Tool-Antwort an den messageChan, falls dieser nicht nil ist\n\t\t\t\t\t\t\tif messageChan != nil {\n\t\t\t\t\t\t\t\tmessageChan \u003c- \u0026request.Message{\n\t\t\t\t\t\t\t\t\tRole:    \"tool\",\n\t\t\t\t\t\t\t\t\tContent: string(msg),\n\t\t\t\t\t\t\t\t}\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t}\n\n\t\t\t\tdefault:\n\t\t\t\t\tswitch content := first.Delta.Content.(type) {\n\t\t\t\t\tcase map[string]any:\n\t\t\t\t\t\tfmt.Printf(\"MAP %v\\n\", content)\n\t\t\t\t\tcase []any:\n\t\t\t\t\t\tfmt.Printf(\"LIST %v\\n\", content)\n\t\t\t\t\tcase string:\n\t\t\t\t\t\tif messageChan != nil {\n\t\t\t\t\t\t\tmessageChan \u003c- \u0026request.Message{\n\t\t\t\t\t\t\t\tRole:    \"assistant\",\n\t\t\t\t\t\t\t\tContent: content,\n\t\t\t\t\t\t\t}\n\t\t\t\t\t\t}\n\t\t\t\t\t\tbuilder.WriteString(content)\n\n\t\t\t\t\tdefault:\n\t\t\t\t\t\tfmt.Printf(\"Unknown type %v\\n\", content)\n\t\t\t\t\t}\n\t\t\t\t}\n\t\t\t\tchatContext.TotalTokens = completition.Usage.TotalTokens\n\t\t\t}\n\t\t}\n\n\t\tif builder.Len() \u003e 0 {\n\t\t\tprintln()\n\t\t\tresponseMessage.Content = builder.String()\n\t\t}\n\n\t\tresp.Body.Close()\n\n\t\t// Beende die Schleife, wenn keine Tool-Calls mehr anstehen\n\t\tif len(responseMessage.ToolCalls) == 0 {\n\t\t\tbreak\n\t\t}\n\t}\n\n\treturn chatContext, nil\n}\n\n// callTool ruft ein Tool auf und gibt das Ergebnis zurück.\nfunc (cs *ChatService) callTool(call response.ToolCallChoice) ([]byte, error) {\n\n\tslog.Default().Info(\"Tool Call\", \"tool\", call.Function.Name, \"call_id\", call.Id)\n\n\tif call.Function.Name == \"read_file\" {\n\t\treturn tools.ReadFile(call.Function.Arguments)\n\t} else if call.Function.Name == \"replace_file_content\" {\n\t\treturn tools.ReplaceFileContent(call.Function.Arguments)\n\t} else if call.Function.Name == \"list_files\" {\n\t\treturn tools.ListFiles(call.Function.Arguments)\n\t} else if call.Function.Name == \"write_file\" {\n\t\treturn tools.WriteFile(call.Function.Arguments)\n\t} else if call.Function.Name == \"git_do\" {\n\t\treturn tools.GitDo(call.Function.Arguments)\n\t} else if call.Function.Name == \"git_diff\" {\n\t\treturn tools.GitDiff(call.Function.Arguments)\n\t} else if call.Function.Name == \"create_dir\" {\n\t\treturn tools.CreateDir(call.Function.Arguments)\n\t} else {\n\t\treturn nil, errors.New(\"tool nicht gefunden\")\n\t}\n}\n"
+    },
+    {
+      "role": "assistant",
+      "content": "Jetzt benötige ich den Code des `cli_controller`, um die gewünschte Anpassung vorzunehmen. Bitte gib mir den Pfad zur Datei oder lade den Code hoch."
+    }
+  ],
+  "TotalTokens": 2772
+}

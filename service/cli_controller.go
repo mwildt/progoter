@@ -15,20 +15,17 @@ import (
 type CLIController struct {
 	chatService *ChatService
 	chatContext *ChatContext
-	messageChan chan *request.Message
 }
 
 func NewCLIController(apiKey string) *CLIController {
 	return &CLIController{
 		chatService: NewChatService(apiKey),
 		chatContext: NewChatContext(),
-		messageChan: make(chan *request.Message),
 	}
 }
 
 // StartChat startet die Chat-Schleife und verwaltet die Benutzereingabe und -ausgabe.
 func (cc *CLIController) StartChat() {
-	go cc.listenForMessages()
 	for {
 		input := cc.getUserMessage("Was ist dein Begehr")
 		inputContent := strings.TrimSpace(input.Content)
@@ -40,20 +37,24 @@ func (cc *CLIController) StartChat() {
 			}
 		case "/clear":
 			if err := cc.ClearContext(); err != nil {
-				slog.Error("Fehler beim Komprimieren des Chatverlaufs", "error", err)
+				slog.Error("Fehler beim Zurücksetzen des Chatverlaufs", "error", err)
 			}
 		case "/dump":
 			if err := cc.DumpContext(); err != nil {
-				slog.Error("Fehler beim Komprimieren des Chatverlaufs", "error", err)
+				slog.Error("Fehler beim Schreiben des Chatverlaufs", "error", err)
 			}
 
 		default:
 			cc.chatContext.AddMessage(input)
-			var err error
-			cc.chatContext, err = cc.chatService.CompleteContext(cc.chatContext, cc.messageChan)
-			if err != nil {
-				slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", err)
-			}
+			messageChan := make(chan *request.Message)
+			go func() {
+				var err error
+				cc.chatContext, err = cc.chatService.CompleteContext(cc.chatContext, messageChan)
+				if err != nil {
+					slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", err)
+				}
+			}()
+			cc.listenForMessages(messageChan)
 		}
 		fmt.Printf("TotalTokens: %d\n", cc.chatContext.TotalTokens)
 	}
@@ -197,10 +198,10 @@ func readSystemPrompt() (string, error) {
 }
 
 // listenForMessages hört auf Nachrichten im Channel und gibt sie aus.
-func (cc *CLIController) listenForMessages() {
+func (cc *CLIController) listenForMessages(messageChan chan *request.Message) {
 	var lastRole string
 
-	for msg := range cc.messageChan {
+	for msg := range messageChan {
 		if len(strings.TrimSpace(msg.Content)) == 0 {
 			continue
 		}

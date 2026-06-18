@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"github.com/mwildt/progoter/service"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -18,8 +19,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	cliController := service.NewCLIController(apiKey)
-	cliController.StartChat()
+	restController := service.NewRESTController(apiKey)
+	staticController := &StaticController{}
+
+	mux := http.NewServeMux()
+	restController.SetupRoutes(mux)
+	staticController.SetupRoutes(mux)
+
+	slog.Info("Server wird gestartet auf Port 8080...")
+	err := http.ListenAndServe(":8080", mux)
+	if err != nil {
+		slog.Error("Fehler beim Starten des Servers", "error", err)
+		os.Exit(1)
+	}
 }
 
 func loadEnv() {

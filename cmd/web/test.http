@@ -1,0 +1,16 @@
+GET localhost:8080/chat/default/dump
+
+
+###
+GET localhost:8080/chat/default/context
+
+###
+POST localhost:8080/chat/default/message
+
+{"role": "user", "content": "Kannst du den cli_controller so anpassen, dass pro aufruf von CompleteContext im default fall ein neuer channel erzeugt wird. Das muss ein, weil der Channel ja duch den servic egschlossen wird."}
+
+
+###
+POST localhost:8080/chat/default/message
+
+{"role": "user", "content": "Dann schau dir den code da :) service/cli_controller.go"}

@@ -29,6 +29,11 @@ func NewChatService(apiKey string) *ChatService {
 
 // CompleteContext vervollständigt den ChatContext mit einer Antwort vom API.
 func (cs *ChatService) CompleteContext(chatContext *ChatContext, messageChan chan *request.Message) (*ChatContext, error) {
+	defer func() {
+		if nil != messageChan {
+			close(messageChan)
+		}
+	}()
 	for {
 		jsonData, err := json.Marshal(&request.ChatCompletion{
 			Model:    "devstral-medium-latest",
