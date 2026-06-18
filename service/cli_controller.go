@@ -33,30 +33,27 @@ func (cc *CLIController) StartChat() {
 		input := cc.getUserMessage("Was ist dein Begehr")
 		inputContent := strings.TrimSpace(input.Content)
 
-		// Check if the user wants to compact the chat
-		if inputContent == "/compact" {
-			err := cc.CompactChat()
-			if err != nil {
+		switch inputContent {
+		case "/compact":
+			if err := cc.CompactChat(); err != nil {
 				slog.Error("Fehler beim Komprimieren des Chatverlaufs", "error", err)
 			}
-			continue
-		}
-
-		// Check if the user wants to dump the context
-		if inputContent == "/dump" {
-			err := cc.DumpContext()
-			if err != nil {
-				slog.Error("Fehler beim Speichern des Chat-Contexts", "error", err)
+		case "/clear":
+			if err := cc.ClearContext(); err != nil {
+				slog.Error("Fehler beim Komprimieren des Chatverlaufs", "error", err)
 			}
-			continue
-		}
+		case "/dump":
+			if err := cc.DumpContext(); err != nil {
+				slog.Error("Fehler beim Komprimieren des Chatverlaufs", "error", err)
+			}
 
-		cc.chatContext.AddMessage(input)
-
-		var err error
-		cc.chatContext, err = cc.chatService.CompleteContext(cc.chatContext, cc.messageChan)
-		if err != nil {
-			slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", err)
+		default:
+			cc.chatContext.AddMessage(input)
+			var err error
+			cc.chatContext, err = cc.chatService.CompleteContext(cc.chatContext, cc.messageChan)
+			if err != nil {
+				slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", err)
+			}
 		}
 		fmt.Printf("TotalTokens: %d\n", cc.chatContext.TotalTokens)
 	}
