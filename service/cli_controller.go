@@ -159,6 +159,25 @@ func (cc *CLIController) DumpContext() error {
 	return nil
 }
 
+// ClearContext setzt den Chat-Context zurück und erstellt einen neuen Kontext mit dem Standard-Prompt.
+func (cc *CLIController) ClearContext() error {
+	systemPrompt, err := readSystemPrompt()
+	if err != nil {
+		systemPrompt = "Du bist ein hilfreicher Agent bei der Programmierung von golang apps."
+	}
+
+	// Create a new context with the system prompt
+	newContext := &ChatContext{
+		Messages: []*request.Message{
+			{Role: "system", Content: systemPrompt},
+		},
+	}
+
+	cc.chatContext = newContext
+	fmt.Println("\nChat-Context wurde erfolgreich zurückgesetzt.")
+	return nil
+}
+
 // readSystemPrompt reads the system prompt from the prompts/system-default.md file.
 func readSystemPrompt() (string, error) {
 	// Get the current working directory
