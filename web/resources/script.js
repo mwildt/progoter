@@ -56,22 +56,39 @@ class Message extends LitElement {
 
     static styles = css`
         .message {
-            margin-bottom: 10px;
-            padding: 10px;
-            border-radius: 5px;
-            background-color: #e3f2fd;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.2s ease;
         }
 
         .message-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 10px 15px;
             cursor: pointer;
-            font-weight: bold;
+            font-weight: 600;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .message-header:hover {
+            background-color: #e9ecef;
+        }
+
+        .message-role {
+            color: #495057;
+        }
+
+        .message-toggle {
+            color: #6c757d;
+            font-size: 14px;
         }
 
         .message-content {
-            margin-top: 10px;
+            padding: 15px;
             display: none;
         }
 
@@ -79,16 +96,57 @@ class Message extends LitElement {
             display: block;
         }
 
+        .message-assistant {
+            background-color: #f8f9ff;
+            border-left: 4px solid #6b72ff;
+        }
+
+        .message-user {
+            background-color: #fff8f8;
+            border-left: 4px solid #ff6b6b;
+        }
+
+        .message-other {
+            background-color: #f8f9fa;
+            border-left: 4px solid #ced4da;
+        }
+
         .tool-calls {
             margin-top: 10px;
             padding: 10px;
-            background-color: #f0f0f0;
+            background-color: #f8f9fa;
             border-radius: 5px;
+            border-left: 3px solid #adb5bd;
+        }
+
+        .tool-calls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: 600;
+            color: #495057;
         }
 
         .tool-call {
-            margin-bottom: 5px;
-            font-family: monospace;
+            margin-top: 8px;
+            padding: 8px;
+            background-color: #fff;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #495057;
+            border-left: 2px solid #ced4da;
+        }
+
+        .tool-call-details {
+            display: none;
+            margin-top: 5px;
+            padding-left: 10px;
+        }
+
+        .tool-call.visible .tool-call-details {
+            display: block;
         }
     `;
 
@@ -215,6 +273,7 @@ customElements.define('chat-input', InputBar);
 
 // ChatApp Component
 class ChatApp extends LitElement {
+
     connectedCallback() {
         super.connectedCallback();
         this.loadChatContext();
@@ -229,9 +288,18 @@ class ChatApp extends LitElement {
         super();
         this.messages = [];
         this.isLoading = false;
+        this.needScoll = false;
+    }
+
+    updated(changedProperties) {
+        if (this.needScoll) {
+            this.needScoll = false
+            this.scrollToBottom()
+        }
     }
 
     async loadChatContext() {
+        this.needScoll = true
         try {
             const response = await fetch('http://localhost:8080/chat/default/context', {
                 method: 'GET',
@@ -239,14 +307,12 @@ class ChatApp extends LitElement {
                     'Content-Type': 'application/json',
                 },
             });
-
             if (!response.ok) {
                 throw new Error('Failed to load chat context');
             }
             const context = await response.json();
-            console.warn(context)
             this.messages = context.messages || [];
-            this.requestUpdate();
+            setTimeout(() => this.scrollToBottom())
         } catch (error) {
             console.error('Error loading chat context:', error);
         }
@@ -294,13 +360,21 @@ class ChatApp extends LitElement {
         this.inputValue = e.detail.value;
     }
 
+    scrollToBottom() {
+        const messagesContainer = this.shadowRoot.querySelector('.messages');
+        if (messagesContainer) {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+    }
+
     async sendMessage(e) {
         const message = e.detail.message;
         this.isLoading = true;
 
         // Add user message to the chat
-        this.messages = [...this.messages, { role: 'You', content: message }];
+        this.messages = [...this.messages, { role: 'user', content: message }];
         this.requestUpdate();
+        this.scrollToBottom();
 
         try {
             // Send message to the REST API
@@ -318,8 +392,9 @@ class ChatApp extends LitElement {
 
             // Add a placeholder message for the assistant's response
             const assistantMessageIndex = this.messages.length;
-            this.messages = [...this.messages, { role: 'Assistant', content: '' }];
+            this.messages = [...this.messages, { role: 'assistant', content: '' }];
             this.requestUpdate();
+            this.scrollToBottom();
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -333,10 +408,7 @@ class ChatApp extends LitElement {
                 let parts = buffer.split("\n\n");
                 buffer = parts.pop(); // letzter evtl. unvollständiger Block bleibt drin
 
-                console.warn("handle parts")
-
                 for (const part of parts) {
-                    console.warn("handle part", part)
                     const line = part
                         .split("\n")
                         .find(l => l.startsWith("data:"));
@@ -350,14 +422,19 @@ class ChatApp extends LitElement {
 
                     const json = JSON.parse(data);
 
-                    this.messages[assistantMessageIndex].content += json.content;
+                    this.messages[assistantMessageIndex] = {
+                        ...this.messages[assistantMessageIndex],
+                        content: this.messages[assistantMessageIndex].content += json.content
+                    };
                 }
                 this.requestUpdate();
+                this.scrollToBottom();
             }
         } catch (error) {
             console.error('Error:', error);
             this.messages = [...this.messages, { sender: 'Error', text: error.message }];
             this.requestUpdate();
+            this.scrollToBottom();
         } finally {
             this.isLoading = false;
         }
