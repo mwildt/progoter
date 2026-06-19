@@ -6,8 +6,8 @@ import (
 
 // ChatContext represents a collection of messages in a chat.
 type ChatContext struct {
-	Messages    []*request.Message
-	TotalTokens int
+	Messages    []*request.Message `json:"messages"`
+	TotalTokens int                `json:"total_tokens"`
 }
 
 // NewChatContext creates a new ChatContext with an initial system message.

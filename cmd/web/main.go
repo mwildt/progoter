@@ -20,11 +20,12 @@ func main() {
 	}
 
 	restController := service.NewRESTController(apiKey)
-	staticController := &StaticController{}
 
 	mux := http.NewServeMux()
 	restController.SetupRoutes(mux)
-	staticController.SetupRoutes(mux)
+
+	fs := http.FileServer(http.Dir("./web/resources"))
+	mux.Handle("/", fs)
 
 	slog.Info("Server wird gestartet auf Port 8080...")
 	err := http.ListenAndServe(":8080", mux)

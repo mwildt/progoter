@@ -101,6 +101,10 @@ func (rc *RESTController) CompactChatHandler(w http.ResponseWriter, r *http.Requ
 	fmt.Fprintf(w, "Chatverlauf wurde erfolgreich komprimiert.")
 }
 
+type PostMessageRequestDTO struct {
+	Message string `json:"message"`
+}
+
 // MessageHandler sendet eine Nachricht und liefert einen SSE-Stream mit Events.
 func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request) {
 	if !rc.StartProcessing() {
@@ -109,8 +113,8 @@ func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request)
 	}
 	defer rc.StopProcessing()
 
-	var input request.Message
-	err := json.NewDecoder(r.Body).Decode(&input)
+	var messageRequest PostMessageRequestDTO
+	err := json.NewDecoder(r.Body).Decode(&messageRequest)
 	if err != nil {
 		http.Error(w, "Ungültige Anfrage", http.StatusBadRequest)
 		return
@@ -122,7 +126,10 @@ func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Connection", "keep-alive")
 
 	// Füge die Nachricht zum Chat-Kontext hinzu
-	rc.chatContext.AddMessage(&input)
+	rc.chatContext.AddMessage(&request.Message{
+		Role:    "user",
+		Content: messageRequest.Message,
+	})
 
 	messageChan := make(chan *request.Message)
 

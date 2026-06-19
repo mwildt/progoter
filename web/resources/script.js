@@ -1,45 +1,60 @@
+
 import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js';
 
-class ChatApp extends LitElement {
+import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+import DOMPurify from "https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.es.mjs";
+
+
+class MarkdownView extends LitElement {
     static properties = {
-        messages: { type: Array },
-        inputValue: { type: String },
-        isLoading: { type: Boolean },
+        content: { type: String },
     };
 
     constructor() {
         super();
-        this.messages = [];
-        this.inputValue = '';
-        this.isLoading = false;
+        this.content = "# Hallo\n**Markdown sicher gerendert**";
     }
 
     static styles = css`
-        :host {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
-            margin: 0;
-            padding: 0;
-        }
+    .md {
+      line-height: 1.5;
+    }
 
-        .chat-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
+    .md pre {
+      padding: 10px;
+      overflow: auto;
+    }
+  `;
 
-        .messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 10px;
-            background-color: white;
-            border-bottom: 1px solid #ddd;
-        }
+    render() {
+        const rawHtml = marked.parse(this.content || "");
+        const safeHtml = DOMPurify.sanitize(rawHtml);
+        return html`
+          <div class="md" .innerHTML=${safeHtml}></div>
+        `;
+    }
+}
 
+customElements.define("markdown-view", MarkdownView);
+// Message Component
+class Message extends LitElement {
+    static properties = {
+        message: { type: Object },
+    };
+
+    constructor() {
+        super();
+        this.collapsed = false;
+        this.message = {}
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        // Standardmäßig ausgeklappt für 'assistant' und 'user', sonst eingeklappt
+        this.collapsed = !(this.message.role === 'assistant' || this.message.role === 'user');
+    }
+
+    static styles = css`
         .message {
             margin-bottom: 10px;
             padding: 10px;
@@ -47,6 +62,86 @@ class ChatApp extends LitElement {
             background-color: #e3f2fd;
         }
 
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .message-content {
+            margin-top: 10px;
+            display: none;
+        }
+
+        .message-content.visible {
+            display: block;
+        }
+
+        .tool-calls {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+
+        .tool-call {
+            margin-bottom: 5px;
+            font-family: monospace;
+        }
+    `;
+
+    toggleCollapse() {
+        this.collapsed = !this.collapsed;
+        this.requestUpdate();
+    }
+
+    renderToolCalls() {
+        if (!this.message.tool_calls || this.message.tool_calls.length === 0) {
+            return html``;
+        }
+
+        return html`
+            <div class="tool-calls">
+                <h4>Tool Calls:</h4>
+                ${this.message.tool_calls.map(toolCall => html`
+                    <div class="tool-call">
+                        <strong>ID:</strong> ${toolCall.id}<br>
+                        <strong>Type:</strong> ${toolCall.type}<br>
+                        <strong>Function:</strong> ${toolCall.function.name}<br>
+                        <strong>Arguments:</strong> ${toolCall.function.arguments}
+                    </div>
+                `)}
+            </div>
+        `;
+    }
+
+    render() {
+        return html`
+            <div class="message">
+                <div class="message-header" @click=${this.toggleCollapse}>
+                    <span>${this.message.role}</span>
+                    <span>${this.message.collapsed ? '▶' : '▼'}</span>
+                </div>
+                <div class="message-content ${this.collapsed ? '' : 'visible'}">
+                    <markdown-view .content=${this.message.content}></markdown-view>
+                    ${this.renderToolCalls()}
+                </div>
+            </div>
+        `;
+    }
+}
+
+customElements.define('chat-message', Message);
+
+// InputBar Component
+class InputBar extends LitElement {
+    static properties = {
+        value: { type: String },
+    };
+
+    static styles = css`
         .input-area {
             display: flex;
             padding: 10px;
@@ -78,76 +173,192 @@ class ChatApp extends LitElement {
         }
     `;
 
+    constructor() {
+        super();
+        this.value = '';
+    }
+
     render() {
         return html`
-            <div class="chat-container">
-                <div class="messages">
-                    ${this.messages.map(msg => html`<div class="message">${msg}</div>`)}
-                </div>
-                <div class="input-area">
-                    <input
-                        .value=${this.inputValue}
-                        @input=${this.handleInput}
-                        @keyup=${this.handleKeyUp}
-                        placeholder="Type your message here..."
-                    >
-                    <button @click=${this.sendMessage}>Send</button>
-                </div>
+            <div class="input-area">
+                <input
+                    .value=${this.value}
+                    @input=${this.handleInput}
+                    @keyup=${this.handleKeyUp}
+                    placeholder="Type your message here..."
+                >
+                <button @click=${this.handleSend}>Send</button>
             </div>
         `;
     }
 
     handleInput(e) {
-        this.inputValue = e.target.value;
+        this.value = e.target.value;
+        this.dispatchEvent(new CustomEvent('input-change', { detail: { value: this.value } }));
     }
 
     handleKeyUp(e) {
         if (e.key === 'Enter') {
-            this.sendMessage();
+            this.handleSend();
         }
     }
 
-    async sendMessage() {
-        if (this.inputValue.trim() === '') return;
+    handleSend() {
+        if (this.value.trim() !== '') {
+            this.dispatchEvent(new CustomEvent('send-message', { detail: { message: this.value } }));
+            this.value = '';
+        }
+    }
+}
 
-        const message = this.inputValue;
-        this.inputValue = '';
+customElements.define('chat-input', InputBar);
+
+// ChatApp Component
+class ChatApp extends LitElement {
+    connectedCallback() {
+        super.connectedCallback();
+        this.loadChatContext();
+    }
+
+    static properties = {
+        messages: { type: Array },
+        isLoading: { type: Boolean },
+    };
+
+    constructor() {
+        super();
+        this.messages = [];
+        this.isLoading = false;
+    }
+
+    async loadChatContext() {
+        try {
+            const response = await fetch('http://localhost:8080/chat/default/context', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to load chat context');
+            }
+            const context = await response.json();
+            console.warn(context)
+            this.messages = context.messages || [];
+            this.requestUpdate();
+        } catch (error) {
+            console.error('Error loading chat context:', error);
+        }
+    }
+
+    static styles = css`
+        :host {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            background-color: white;
+            border-bottom: 1px solid #ddd;
+        }
+    `;
+
+    render() {
+        return html`
+            <div class="chat-container">
+                <div class="messages">
+                    ${this.messages.map(msg => html`<chat-message .message=${msg}></chat-message>`)}
+                </div>
+                <chat-input @send-message=${this.sendMessage} @input-change=${this.handleInputChange}></chat-input>
+            </div>
+        `;
+    }
+
+    handleInputChange(e) {
+        this.inputValue = e.detail.value;
+    }
+
+    async sendMessage(e) {
+        const message = e.detail.message;
         this.isLoading = true;
 
         // Add user message to the chat
-        this.messages = [...this.messages, `You: ${message}`];
+        this.messages = [...this.messages, { role: 'You', content: message }];
         this.requestUpdate();
 
         try {
             // Send message to the REST API
-            const response = await fetch('http://localhost:8080/api/chat', {
+            const response = await fetch('http://localhost:8080/chat/default/message', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ message }),
+                body: JSON.stringify({ message: message }),
             });
 
             if (!response.ok) {
                 throw new Error('Failed to send message');
             }
 
-            // Handle SSE stream
-            const eventSource = new EventSource('http://localhost:8080/api/chat/stream');
-            eventSource.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                this.messages = [...this.messages, `Bot: ${data.message}`];
-                this.requestUpdate();
-            };
+            // Add a placeholder message for the assistant's response
+            const assistantMessageIndex = this.messages.length;
+            this.messages = [...this.messages, { role: 'Assistant', content: '' }];
+            this.requestUpdate();
 
-            eventSource.onerror = () => {
-                eventSource.close();
-                this.isLoading = false;
-            };
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            var  buffer = "";
+            while (true) {
+                const {done, value} = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, {stream: true});
+
+                let parts = buffer.split("\n\n");
+                buffer = parts.pop(); // letzter evtl. unvollständiger Block bleibt drin
+
+                console.warn("handle parts")
+
+                for (const part of parts) {
+                    console.warn("handle part", part)
+                    const line = part
+                        .split("\n")
+                        .find(l => l.startsWith("data:"));
+
+                    if (!line) continue;
+
+                    const data = line.replace("data: ", "").trim();
+                    if (!data) continue;
+
+                    if (data === "[DONE]") continue;
+
+                    const json = JSON.parse(data);
+
+                    this.messages[assistantMessageIndex].content += json.content;
+                }
+                this.requestUpdate();
+            }
         } catch (error) {
             console.error('Error:', error);
-            this.messages = [...this.messages, `Error: ${error.message}`];
+            this.messages = [...this.messages, { sender: 'Error', text: error.message }];
             this.requestUpdate();
+        } finally {
             this.isLoading = false;
         }
     }
