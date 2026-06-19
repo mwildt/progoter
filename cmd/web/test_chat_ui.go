@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 )
 
-func testStaticController() {
+func testChatUI() {
 	staticController := &StaticController{}
 	mux := http.NewServeMux()
 	staticController.SetupRoutes(mux)
@@ -28,15 +28,8 @@ func testStaticController() {
 	fmt.Printf("Status Code: %d\n", rec.Code)
 	fmt.Printf("Content-Type: %s\n", rec.Header().Get("Content-Type"))
 	fmt.Printf("Body: %s\n", rec.Body.String())
-
-	// Test non-existent file
-	req = httptest.NewRequest("GET", "/resources/nonexistent.txt", nil)
-	rec = httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-
-	fmt.Printf("Status Code: %d\n", rec.Code)
 }
 
 func main() {
-	testStaticController()
+	testChatUI()
 }

@@ -1,4 +1,4 @@
-package main
+package controller
 
 import (
 	"net/http"
@@ -7,7 +7,7 @@ import (
 )
 
 // StaticController handles requests for static resources.
-type StaticController struct {}
+type StaticController struct{}
 
 // SetupRoutes configures the routes for static resources.
 func (sc *StaticController) SetupRoutes(mux *http.ServeMux) {

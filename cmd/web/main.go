@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"github.com/mwildt/progoter/service"
+	"github.com/mwildt/progoter/web/controller"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,7 +21,7 @@ func main() {
 	}
 
 	restController := service.NewRESTController(apiKey)
-	staticController := &StaticController{}
+	staticController := &controller.StaticController{}
 
 	mux := http.NewServeMux()
 	restController.SetupRoutes(mux)
