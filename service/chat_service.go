@@ -3,6 +3,7 @@ package service
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,13 +29,18 @@ func NewChatService(apiKey string) *ChatService {
 }
 
 // CompleteContext vervollständigt den ChatContext mit einer Antwort vom API.
-func (cs *ChatService) CompleteContext(chatContext *ChatContext, messageChan chan *request.Message) (*ChatContext, error) {
+func (cs *ChatService) CompleteContext(ctx context.Context, chatContext *ChatContext, messageChan chan *request.Message) (*ChatContext, error) {
 	defer func() {
 		if nil != messageChan {
 			close(messageChan)
 		}
 	}()
 	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
 		jsonData, err := json.Marshal(&request.ChatCompletion{
 			Model:    "devstral-medium-latest",
 			Stream:   true,
@@ -46,7 +52,7 @@ func (cs *ChatService) CompleteContext(chatContext *ChatContext, messageChan cha
 			return nil, err
 		}
 
-		req, err := http.NewRequest("POST", "https://api.mistral.ai/v1/chat/completions", bytes.NewBuffer(jsonData))
+		req, err := http.NewRequestWithContext(ctx, "POST", "https://api.mistral.ai/v1/chat/completions", bytes.NewBuffer(jsonData))
 		if err != nil {
 			return nil, err
 		}

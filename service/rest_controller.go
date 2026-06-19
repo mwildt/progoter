@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/mwildt/progoter/request"
@@ -107,6 +108,12 @@ type PostMessageRequestDTO struct {
 
 // MessageHandler sendet eine Nachricht und liefert einen SSE-Stream mit Events.
 func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request) {
+
+	go func() {
+		<-r.Context().Done()
+		slog.Info("request abgebrochen", "error", r.Context().Err())
+	}()
+
 	if !rc.StartProcessing() {
 		http.Error(w, "Eine Aktion läuft bereits", http.StatusConflict)
 		return
@@ -154,7 +161,7 @@ func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request)
 				slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", errError)
 			}
 		}()
-		_, errError = rc.chatService.CompleteContext(rc.chatContext, messageChan)
+		_, errError = rc.chatService.CompleteContext(r.Context(), rc.chatContext, messageChan)
 	}()
 
 	// Sende SSE-Ereignisse an den Client
@@ -203,7 +210,7 @@ Fasse den bisherigen Chatverlauf zusammen. Ziel ist es, **alle fachlichen Inform
 	rc.chatContext.AddMessage(summarizeMessage)
 	var messageChan chan *request.Message = nil
 
-	compactedContext, err := rc.chatService.CompleteContext(rc.chatContext, messageChan)
+	compactedContext, err := rc.chatService.CompleteContext(context.Background(), rc.chatContext, messageChan)
 	if err != nil {
 		return fmt.Errorf("Fehler beim Komprimieren des Chatverlaufs: %v", err)
 	}

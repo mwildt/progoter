@@ -1,4 +1,3 @@
-
 import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js';
 
 import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
@@ -80,6 +79,23 @@ class Message extends LitElement {
 
         .message-role {
             color: #495057;
+        }
+
+        .message-teaser {
+            color: #6c757d;
+            font-size: 12px;
+            margin-left: 8px;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tool-call-label {
+            color: #007bff;
+            font-size: 12px;
+            margin-left: 8px;
+            font-weight: 600;
         }
 
         .message-toggle {
@@ -176,11 +192,22 @@ class Message extends LitElement {
     }
 
     render() {
+        const teaser = this.collapsed && this.message.content ? this.message.content.substring(0, 50) + '...' : '';
+        let labels = [];
+        if (this.message.tool_calls && this.message.tool_calls.length > 0) {
+            const toolCall = this.message.tool_calls[0];
+            labels.push(`${toolCall.function.name}#${toolCall.id}`);
+        }
+        if (this.message.tool_call_id) {
+            labels.push(`#${this.message.tool_call_id}`);
+        }
         return html`
             <div class="message">
                 <div class="message-header" @click=${this.toggleCollapse}>
                     <span>${this.message.role}</span>
-                    <span>${this.message.collapsed ? '▶' : '▼'}</span>
+                    ${labels.map(label => html`<span class="tool-call-label">${label}</span>`)}
+                    <span class="message-teaser">${teaser}</span>
+                    <span>${this.collapsed ? '▶' : '▼'}</span>
                 </div>
                 <div class="message-content ${this.collapsed ? '' : 'visible'}">
                     <markdown-view .content=${this.message.content}></markdown-view>
@@ -202,17 +229,18 @@ class InputBar extends LitElement {
     static styles = css`
         .input-area {
             display: flex;
-            padding: 10px;
+            padding: 2rem;
             background-color: #fff;
-            border-top: 1px solid #ddd;
         }
 
-        input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-size: 16px;
+        textarea {
+              flex: 1 1 0%;
+              padding: 8px;
+              border: 1px solid rgb(221, 221, 221);
+              border-radius: 4px;
+              resize: none;
+              line-height: 1.2em;
+              min-height: 1.2em;
         }
 
         button {
@@ -239,12 +267,12 @@ class InputBar extends LitElement {
     render() {
         return html`
             <div class="input-area">
-                <input
+                <textarea
                     .value=${this.value}
                     @input=${this.handleInput}
                     @keyup=${this.handleKeyUp}
                     placeholder="Type your message here..."
-                >
+                ></textarea>
                 <button @click=${this.handleSend}>Send</button>
             </div>
         `;
@@ -253,10 +281,19 @@ class InputBar extends LitElement {
     handleInput(e) {
         this.value = e.target.value;
         this.dispatchEvent(new CustomEvent('input-change', { detail: { value: this.value } }));
+        this.adjustTextareaHeight(e.target);
+    }
+
+    adjustTextareaHeight(textarea) {
+        // Setze die Höhe auf 'auto', um die tatsächliche Höhe zu berechnen
+        textarea.style.height = 'auto';
+        // Passe die Höhe an den Inhalt an
+        textarea.style.height = `${textarea.scrollHeight}px`;
     }
 
     handleKeyUp(e) {
-        if (e.key === 'Enter') {
+        // Überprüfe, ob Strg + Enter gedrückt wurde
+        if (e.key === 'Enter' && e.ctrlKey) {
             this.handleSend();
         }
     }
@@ -277,6 +314,46 @@ class ChatApp extends LitElement {
     connectedCallback() {
         super.connectedCallback();
         this.loadChatContext();
+    }
+
+    async compactChat() {
+        this.isLoading = true;
+        try {
+            const response = await fetch('http://localhost:8080/chat/default/compact', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (!response.ok) {
+                throw new Error('Failed to compact chat');
+            }
+            await this.loadChatContext();
+        } catch (error) {
+            console.error('Error compacting chat:', error);
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
+    async clearChat() {
+        this.isLoading = true;
+        try {
+            const response = await fetch('http://localhost:8080/chat/default/clear', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (!response.ok) {
+                throw new Error('Failed to clear chat');
+            }
+            await this.loadChatContext();
+        } catch (error) {
+            console.error('Error clearing chat:', error);
+        } finally {
+            this.isLoading = false;
+        }
     }
 
     static properties = {
@@ -336,6 +413,36 @@ class ChatApp extends LitElement {
             overflow: hidden;
         }
 
+        .header {
+            display: none;
+            justify-content: flex-end;
+            padding: 10px;
+            background-color: #fff;
+            border-bottom: 1px solid #ddd;
+            gap: 10px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header.visible {
+            display: flex;
+        }
+
+        .header button {
+            padding: 8px 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .header button:hover {
+            background-color: #0056b3;
+        }
+
         .messages {
             flex: 1;
             overflow-y: auto;
@@ -348,6 +455,10 @@ class ChatApp extends LitElement {
     render() {
         return html`
             <div class="chat-container">
+                <div class="header ${this.messages.length > 0 ? 'visible' : ''}">
+                    <button @click=${this.compactChat}>Compact</button>
+                    <button @click=${this.clearChat}>Clear</button>
+                </div>
                 <div class="messages">
                     ${this.messages.map(msg => html`<chat-message .message=${msg}></chat-message>`)}
                 </div>

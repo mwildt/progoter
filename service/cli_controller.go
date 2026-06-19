@@ -2,6 +2,7 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/mwildt/progoter/request"
@@ -49,7 +50,7 @@ func (cc *CLIController) StartChat() {
 			messageChan := make(chan *request.Message)
 			go func() {
 				var err error
-				cc.chatContext, err = cc.chatService.CompleteContext(cc.chatContext, messageChan)
+				cc.chatContext, err = cc.chatService.CompleteContext(context.Background(), cc.chatContext, messageChan)
 				if err != nil {
 					slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", err)
 				}
@@ -94,7 +95,7 @@ Fasse den bisherigen Chatverlauf zusammen. Ziel ist es, **alle fachlichen Inform
 	var messageChan chan *request.Message = nil
 
 	// Request completion from the chat service
-	compactedContext, err := cc.chatService.CompleteContext(cc.chatContext, messageChan)
+	compactedContext, err := cc.chatService.CompleteContext(context.Background(), cc.chatContext, messageChan)
 	if err != nil {
 		return fmt.Errorf("Fehler beim Komprimieren des Chatverlaufs: %v", err)
 	}
