@@ -195,6 +195,7 @@ class Message extends LitElement {
         const teaser = this.collapsed && this.message.content ? this.message.content.substring(0, 50) + '...' : '';
         let labels = [];
         if (this.message.tool_calls && this.message.tool_calls.length > 0) {
+            console.warn(this.message)
             const toolCall = this.message.tool_calls[0];
             labels.push(`${toolCall.function.name}#${toolCall.id}`);
         }
@@ -202,6 +203,7 @@ class Message extends LitElement {
             labels.push(`#${this.message.tool_call_id}`);
         }
         return html`
+            <pre>${JSON.stringify(this.message)}</pre>
             <div class="message">
                 <div class="message-header" @click=${this.toggleCollapse}>
                     <span>${this.message.role}</span>
