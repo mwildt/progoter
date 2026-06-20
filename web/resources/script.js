@@ -395,13 +395,16 @@ class ChatApp extends LitElement {
         }
     }
 
+    allMessagesAreSystem() {
+        return this.messages.every(m => m.role === 'system')
+    }
+
     static styles = css`
         :host {
             display: flex;
             flex-direction: column;
             height: 100vh;
             font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
             margin: 0;
             padding: 0;
         }
@@ -412,9 +415,15 @@ class ChatApp extends LitElement {
             flex-direction: column;
             overflow: hidden;
         }
+        .chat-container.mode-init {
+            justify-content: space-around;
+        }
+        .chat-container.mode-chat {
+            justify-content: flex-start;
+        }
 
         .header {
-            display: none;
+            display: flex;
             justify-content: flex-end;
             padding: 10px;
             background-color: #fff;
@@ -423,10 +432,6 @@ class ChatApp extends LitElement {
             position: sticky;
             top: 0;
             z-index: 100;
-        }
-
-        .header.visible {
-            display: flex;
         }
 
         .header button {
@@ -450,18 +455,31 @@ class ChatApp extends LitElement {
             background-color: white;
             border-bottom: 1px solid #ddd;
         }
+
+        .empty-messages {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: white;
+        }
+
     `;
 
     render() {
+        const initial = this.allMessagesAreSystem()
         return html`
-            <div class="chat-container">
-                <div class="header ${this.messages.length > 0 ? 'visible' : ''}">
-                    <button @click=${this.compactChat}>Compact</button>
-                    <button @click=${this.clearChat}>Clear</button>
-                </div>
-                <div class="messages">
-                    ${this.messages.map(msg => html`<chat-message .message=${msg}></chat-message>`)}
-                </div>
+            <div class="chat-container mode-${initial ? 'init': 'chat'}" >
+                ${!initial ?
+                    html`
+                    <div class="header" >
+                        <button @click=${this.compactChat}>Compact</button>
+                        <button @click=${this.clearChat}>Clear</button>
+                    </div>
+                    <div class="messages">
+                        ${this.messages.map(msg => html`<chat-message .message=${msg}></chat-message>`)}
+                    </div>
+                 ` : ''}
                 <chat-input @send-message=${this.sendMessage} @input-change=${this.handleInputChange}></chat-input>
             </div>
         `;
