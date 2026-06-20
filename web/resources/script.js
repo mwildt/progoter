@@ -527,7 +527,8 @@ class ChatApp extends LitElement {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            var  buffer = "";
+            var buffer = "";
+            let currentMessageIndex = assistantMessageIndex;
             while (true) {
                 const {done, value} = await reader.read();
                 if (done) break;
@@ -551,10 +552,21 @@ class ChatApp extends LitElement {
 
                     const json = JSON.parse(data);
 
-                    this.messages[assistantMessageIndex] = {
-                        ...this.messages[assistantMessageIndex],
-                        content: this.messages[assistantMessageIndex].content += json.content
-                    };
+                    if (json.role && json.role !== this.messages[currentMessageIndex].role) {
+                        this.messages = [...this.messages, {
+                            role: json.role,
+                            content: json.content,
+                            tool_calls: json.tool_calls,
+                            tool_call_id: json.tool_call_id
+                        }];
+                        currentMessageIndex = this.messages.length - 1;
+                    } else {
+                        this.messages[currentMessageIndex] = {
+                            ...this.messages[currentMessageIndex],
+                            content: (this.messages[currentMessageIndex].content || "") + json.content,
+                            tool_calls: [].concat(this.messages[currentMessageIndex].tool_calls).concat(json.tool_calls)
+                        };
+                    }
                 }
                 this.requestUpdate();
                 this.scrollToBottom();
