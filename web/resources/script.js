@@ -566,7 +566,7 @@ class ChatApp extends LitElement {
                         this.messages[currentMessageIndex] = {
                             ...this.messages[currentMessageIndex],
                             content: (this.messages[currentMessageIndex].content || "") + json.content,
-                            tool_calls: [].concat(this.messages[currentMessageIndex].tool_calls).concat(json.tool_calls)
+                            tool_calls: [].concat(this.messages[currentMessageIndex].tool_calls || []).concat(json.tool_calls || [])
                         };
                     }
                 }

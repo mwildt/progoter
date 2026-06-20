@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/mwildt/progoter/request"
@@ -390,30 +389,17 @@ type StatusResponse struct {
 	Error    string `json:"error,omitempty"`
 }
 
-// StopProcessArgs enthält die Argumente für das stop_process Tool
-type StopProcessArgs struct {
-	PID int `json:"pid"`
-}
-
 // getStopProcessTool definiert das stop_process Tool
 func getStopProcessTool() request.Tool {
 	return request.Tool{
 		Type: "function",
 		Function: request.ToolFunction{
 			Name:        "stop_process",
-			Description: "Beendet einen laufenden Go-Prozess anhand seiner Prozess-ID",
+			Description: "Beendet den laufenden Prozess.",
 			Parameters: request.FunctionParams{
-				Type: "object",
-				Properties: map[string]request.ArgumentProperty{
-					"pid": {
-						Type:        "integer",
-						Name:        "pid",
-						Description: "Die Prozess-ID des zu beendenden Prozesses.",
-					},
-				},
-				Required: []string{
-					"pid",
-				},
+				Type:       "object",
+				Properties: map[string]request.ArgumentProperty{},
+				Required:   []string{},
 			},
 		},
 	}
@@ -421,27 +407,8 @@ func getStopProcessTool() request.Tool {
 
 // StopProcess implementiert das stop_process Tool
 func StopProcess(args string) ([]byte, error) {
-	var stopProcessArgs StopProcessArgs
-	err := json.Unmarshal([]byte(args), &stopProcessArgs)
-	if err != nil {
-		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
-		return status, err
-	}
-
-	// Beende den Prozess
-	process, err := os.FindProcess(stopProcessArgs.PID)
-	if err != nil {
-		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
-		return status, err
-	}
-
-	err = process.Kill()
-	if err != nil {
-		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
-		return status, err
-	}
-
-	return json.Marshal(StatusResponse{Status: "OK", Messsage: "Prozess erfolgreich beendet"})
+	os.Exit(1)
+	return nil, nil
 }
 
 // runCommand führt einen Befehl aus

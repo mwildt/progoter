@@ -222,6 +222,8 @@ func (cs *ChatService) callTool(call response.ToolCallChoice) ([]byte, error) {
 		return tools.GitDiff(call.Function.Arguments)
 	} else if call.Function.Name == "create_dir" {
 		return tools.CreateDir(call.Function.Arguments)
+	} else if call.Function.Name == "stop_process" {
+		return tools.StopProcess(call.Function.Arguments)
 	} else {
 		return nil, errors.New("tool nicht gefunden")
 	}
