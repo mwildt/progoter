@@ -1,12 +1,12 @@
-import { LitElement, html, css } from 'https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js';
+import {css, html, LitElement} from 'https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js';
 
-import { marked } from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
+import {marked} from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import DOMPurify from "https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.es.mjs";
 
 
 class MarkdownView extends LitElement {
     static properties = {
-        content: { type: String },
+        content: {type: String},
     };
 
     constructor() {
@@ -29,16 +29,17 @@ class MarkdownView extends LitElement {
         const rawHtml = marked.parse(this.content || "");
         const safeHtml = DOMPurify.sanitize(rawHtml);
         return html`
-          <div class="md" .innerHTML=${safeHtml}></div>
+            <div class="md" .innerHTML=${safeHtml}></div>
         `;
     }
 }
 
 customElements.define("markdown-view", MarkdownView);
+
 // Message Component
 class Message extends LitElement {
     static properties = {
-        message: { type: Object },
+        message: {type: Object},
     };
 
     constructor() {
@@ -203,7 +204,6 @@ class Message extends LitElement {
             labels.push(`#${this.message.tool_call_id}`);
         }
         return html`
-            <pre>${JSON.stringify(this.message)}</pre>
             <div class="message">
                 <div class="message-header" @click=${this.toggleCollapse}>
                     <span>${this.message.role}</span>
@@ -225,13 +225,12 @@ customElements.define('chat-message', Message);
 // InputBar Component
 class InputBar extends LitElement {
     static properties = {
-        value: { type: String },
+        value: {type: String},
     };
 
     static styles = css`
         .input-area {
             display: flex;
-            padding: 2rem;
             background-color: #fff;
         }
 
@@ -270,10 +269,10 @@ class InputBar extends LitElement {
         return html`
             <div class="input-area">
                 <textarea
-                    .value=${this.value}
-                    @input=${this.handleInput}
-                    @keyup=${this.handleKeyUp}
-                    placeholder="Type your message here..."
+                        .value=${this.value}
+                        @input=${this.handleInput}
+                        @keyup=${this.handleKeyUp}
+                        placeholder="Type your message here..."
                 ></textarea>
                 <button @click=${this.handleSend}>Send</button>
             </div>
@@ -282,7 +281,7 @@ class InputBar extends LitElement {
 
     handleInput(e) {
         this.value = e.target.value;
-        this.dispatchEvent(new CustomEvent('input-change', { detail: { value: this.value } }));
+        this.dispatchEvent(new CustomEvent('input-change', {detail: {value: this.value}}));
         this.adjustTextareaHeight(e.target);
     }
 
@@ -302,7 +301,7 @@ class InputBar extends LitElement {
 
     handleSend() {
         if (this.value.trim() !== '') {
-            this.dispatchEvent(new CustomEvent('send-message', { detail: { message: this.value } }));
+            this.dispatchEvent(new CustomEvent('send-message', {detail: {message: this.value}}));
             this.value = '';
         }
     }
@@ -359,8 +358,8 @@ class ChatApp extends LitElement {
     }
 
     static properties = {
-        messages: { type: Array },
-        isLoading: { type: Boolean },
+        messages: {type: Array},
+        isLoading: {type: Boolean},
     };
 
     constructor() {
@@ -465,24 +464,31 @@ class ChatApp extends LitElement {
             align-items: center;
             background-color: white;
         }
+        
+        .input-area {
+            padding: 2rem;
+        }
 
     `;
 
     render() {
         const initial = this.allMessagesAreSystem()
         return html`
-            <div class="chat-container mode-${initial ? 'init': 'chat'}" >
-                ${!initial ?
-                    html`
-                    <div class="header" >
+            <div class="chat-container mode-${initial ? 'init' : 'chat'}">
+                ${initial ? undefined : html`
+                    <div class="header">
                         <button @click=${this.compactChat}>Compact</button>
                         <button @click=${this.clearChat}>Clear</button>
                     </div>
                     <div class="messages">
-                        ${this.messages.map(msg => html`<chat-message .message=${msg}></chat-message>`)}
+                        ${this.messages.map(msg => html`
+                            <chat-message .message=${msg}></chat-message>`)}
                     </div>
-                 ` : ''}
-                <chat-input @send-message=${this.sendMessage} @input-change=${this.handleInputChange}></chat-input>
+                `}
+                <div class="input-area">
+                    ${initial ? html`<h3>Was geht up?</h3>` : undefined}
+                    <chat-input @send-message=${this.sendMessage} @input-change=${this.handleInputChange}></chat-input>
+                </div>
             </div>
         `;
     }
@@ -503,7 +509,7 @@ class ChatApp extends LitElement {
         this.isLoading = true;
 
         // Add user message to the chat
-        this.messages = [...this.messages, { role: 'user', content: message }];
+        this.messages = [...this.messages, {role: 'user', content: message}];
         this.requestUpdate();
         this.scrollToBottom();
 
@@ -514,7 +520,7 @@ class ChatApp extends LitElement {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ message: message }),
+                body: JSON.stringify({message: message}),
             });
 
             if (!response.ok) {
@@ -523,7 +529,7 @@ class ChatApp extends LitElement {
 
             // Add a placeholder message for the assistant's response
             const assistantMessageIndex = this.messages.length;
-            this.messages = [...this.messages, { role: 'assistant', content: '' }];
+            this.messages = [...this.messages, {role: 'assistant', content: ''}];
             this.requestUpdate();
             this.scrollToBottom();
 
@@ -575,7 +581,7 @@ class ChatApp extends LitElement {
             }
         } catch (error) {
             console.error('Error:', error);
-            this.messages = [...this.messages, { sender: 'Error', text: error.message }];
+            this.messages = [...this.messages, {sender: 'Error', text: error.message}];
             this.requestUpdate();
             this.scrollToBottom();
         } finally {
