@@ -1,0 +1,1 @@
+Bitte fasse die bisherigen Nachrichten zusammen, sodass der Kontext komprimiert wird. Behalte dabei die wichtigsten Informationen bei und achte darauf, dass die letzten 5 Nachrichten unverändert bleiben. Das Ziel ist es, den Kontext zu verkürzen, ohne relevante Informationen zu verlieren.

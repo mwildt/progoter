@@ -4,6 +4,28 @@ import {marked} from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import DOMPurify from "https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.es.mjs";
 
 
+class AppLayout extends LitElement {
+
+    constructor() {
+        super();
+    }
+
+    static styles = css`
+    :host {
+        display: grid;
+        justify-content: center;
+    }
+  `;
+
+    render() {
+        return html`
+            <slot></slot>
+        `;
+    }
+}
+
+customElements.define("app-layout", AppLayout);
+
 class MarkdownView extends LitElement {
     static properties = {
         content: {type: String},
@@ -402,6 +424,8 @@ class ChatApp extends LitElement {
 
     static styles = css`
         :host {
+            max-width: 1000px;
+            min-width: 1000px;
             display: flex;
             flex-direction: column;
             height: 100vh;

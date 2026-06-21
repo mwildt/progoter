@@ -1,3 +1,7 @@
+GET https://api.mistral.ai/v1/models
+Authorization: Bearer ATn5NZ0WjEaRzLR5lhryhnLsFhNBV5Zy
+###
+
 GET localhost:8080/chat/default/dump
 
 

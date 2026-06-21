@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	// Füge die letzten 5 Nachrichten wieder hinzu
 	"fmt"
 	"github.com/mwildt/progoter/request"
 	"github.com/mwildt/progoter/response"
@@ -28,6 +29,112 @@ func NewChatService(apiKey string) *ChatService {
 	}
 }
 
+func readResponse(body io.Reader, messageChan chan *request.Message) (result *request.Message, err error) {
+	reader := bufio.NewReader(body)
+	result = &request.Message{}
+	var builder strings.Builder
+	var completition response.CompletionChunk
+
+	for {
+		// lesen des Response
+		var line string
+		line, err = reader.ReadString('\n')
+		if err != nil {
+			return result, err
+		}
+
+		line = strings.TrimSpace(line)
+
+		if strings.HasPrefix(line, "data:") {
+			data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			if data == "[DONE]" {
+				break
+			}
+
+			err = json.Unmarshal([]byte(data), &completition)
+			if err != nil {
+				return result, err
+			}
+			choice := completition.Choices[0]
+
+			result.Role = choice.Delta.Role
+
+			var contentPart string
+			// content
+			switch content := choice.Delta.Content.(type) {
+			case map[string]any:
+				fmt.Printf("MAP %v\n", content)
+			case []any:
+				fmt.Printf("LIST %v\n", content)
+			case string:
+				contentPart = content
+				builder.WriteString(content)
+			}
+
+			// tool-calls
+			if len(choice.Delta.ToolCalls) > 0 {
+				result.ToolCalls = append(result.ToolCalls, choice.Delta.ToolCalls...)
+			}
+			if nil != messageChan {
+				messageChan <- &request.Message{
+					Role:      choice.Delta.Role,
+					ToolCalls: choice.Delta.ToolCalls,
+					Content:   contentPart,
+				}
+			}
+		}
+	}
+
+	result.Content = builder.String()
+	return result, nil
+}
+
+func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*request.Message, messageChan chan *request.Message) (*request.Message, error) {
+	jsonData, err := json.Marshal(&request.ChatCompletion{
+		Model:    "devstral-medium-latest",
+		Stream:   true,
+		Messages: messages,
+		Tools:    tools.GetTools(),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.mistral.ai/v1/chat/completions", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cs.apiKey))
+	req.Header.Set("Accept", "text/event-stream")
+
+	slog.Default().Info("send completion request", "url", req.URL.String(), "jsonData", jsonData)
+
+	resp, err := cs.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode >= 400 {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			slog.Error("Fehler beim Lesen des Response-Body", "error", err)
+			resp.Body.Close()
+			return nil, err
+		}
+
+		resp.Body = io.NopCloser(bytes.NewBuffer(body))
+
+		slog.Error("HTTP-Fehler", "status", resp.StatusCode, "body", string(body))
+		resp.Body.Close()
+		return nil, errors.New("HTTP-Fehler")
+	}
+
+	return readResponse(resp.Body, messageChan)
+}
+
 // CompleteContext vervollständigt den ChatContext mit einer Antwort vom API.
 func (cs *ChatService) CompleteContext(ctx context.Context, chatContext *ChatContext, messageChan chan *request.Message) (*ChatContext, error) {
 	defer func() {
@@ -36,167 +143,47 @@ func (cs *ChatService) CompleteContext(ctx context.Context, chatContext *ChatCon
 		}
 	}()
 	for {
+		// wurde der context ggf in der zwischenzet abgebrochen?
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
-		jsonData, err := json.Marshal(&request.ChatCompletion{
-			Model:    "devstral-medium-latest",
-			Stream:   true,
-			Messages: chatContext.GetMessages(),
-			Tools:    tools.GetTools(),
-		})
 
-		if err != nil {
-			return nil, err
-		}
-
-		req, err := http.NewRequestWithContext(ctx, "POST", "https://api.mistral.ai/v1/chat/completions", bytes.NewBuffer(jsonData))
-		if err != nil {
-			return nil, err
-		}
-
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cs.apiKey))
-		req.Header.Set("Accept", "text/event-stream")
-
-		slog.Default().Info("send completion request", "url", req.URL.String(), "jsonData", jsonData)
-
-		resp, err := cs.client.Do(req)
-		if err != nil {
-			return nil, err
-		}
-
-		if resp.StatusCode >= 400 {
-			body, err := io.ReadAll(resp.Body)
+		// // Prüfe, ob der Kontext zu mehr als 75% gefüllt ist
+		/**
+		if chatContext.TotalTokens > 0 && chatContext.TotalTokens > (262144*0.75) {
+			slog.Default().Info("Kontext ist zu mehr als 75% gefüllt. Starte Compaction...")
+			err := cs.compactContext(chatContext)
 			if err != nil {
-				slog.Error("Fehler beim Lesen des Response-Body", "error", err)
-				resp.Body.Close()
+				slog.Error("Fehler bei der Compaction", "error", err)
 				return nil, err
 			}
-
-			resp.Body = io.NopCloser(bytes.NewBuffer(body))
-
-			slog.Error("HTTP-Fehler", "status", resp.StatusCode, "body", string(body))
-			resp.Body.Close()
-			return nil, errors.New("HTTP-Fehler")
 		}
+		*/
 
-		reader := bufio.NewReader(resp.Body)
-
-		var completition response.CompletionChunk
-
-		responseMessage := &request.Message{
-			Role: "assistant",
+		responseMessage, err := cs.sendCompleteRequest(ctx, chatContext.GetMessages(), messageChan)
+		if err != nil {
+			return nil, err
 		}
-
 		chatContext.AddMessage(responseMessage)
-
-		var builder strings.Builder
-
-		for {
-			line, err := reader.ReadString('\n')
-			if err != nil {
-				break
-			}
-
-			line = strings.TrimSpace(line)
-
-			// SSE Format: "data: ..."
-			if strings.HasPrefix(line, "data:") {
-				data := strings.TrimPrefix(line, "data:")
-				data = strings.TrimSpace(data)
-
-				if data == "[DONE]" {
-					break
-				}
-
-				err := json.Unmarshal([]byte(data), &completition)
-				if err != nil {
-					return nil, err
-				}
-
-				first := completition.Choices[0]
-
-				switch first.FinishReason {
-
-				case "tool_calls":
-
-					responseMessage.ToolCalls = append(responseMessage.ToolCalls, first.Delta.ToolCalls...)
-
-					for _, toolCall := range first.Delta.ToolCalls {
-						// Sende den Tool-Call an den messageChan, falls dieser nicht nil ist
-						if messageChan != nil {
-							messageChan <- &request.Message{
-								Role:    "tool-request",
-								Content: fmt.Sprintf("Tool-Call: %s mit ID %s", toolCall.Function.Name, toolCall.Id),
-							}
-						}
-
-						msg, err := cs.callTool(toolCall)
-						if err != nil {
-							chatContext.AddMessage(&request.Message{
-								Role:       "tool",
-								ToolCallId: toolCall.Id,
-								Content:    fmt.Sprintf("Beim Aufruf des Tools ist ein fehler aufgetreten. (error: %v)", err),
-							})
-							// Sende die Fehlermeldung an den messageChan, falls dieser nicht nil ist
-							if messageChan != nil {
-								messageChan <- &request.Message{
-									Role:    "tool",
-									Content: fmt.Sprintf("Fehler beim Aufruf des Tools: %v", err),
-								}
-							}
-						} else {
-							chatContext.AddMessage(&request.Message{
-								Role:       "tool",
-								ToolCallId: toolCall.Id,
-								Content:    string(msg),
-							})
-							// Sende die Tool-Antwort an den messageChan, falls dieser nicht nil ist
-							if messageChan != nil {
-								messageChan <- &request.Message{
-									Role:    "tool",
-									Content: string(msg),
-								}
-							}
-						}
-					}
-
-				default:
-					switch content := first.Delta.Content.(type) {
-					case map[string]any:
-						fmt.Printf("MAP %v\n", content)
-					case []any:
-						fmt.Printf("LIST %v\n", content)
-					case string:
-						if messageChan != nil {
-							messageChan <- &request.Message{
-								Role:    "assistant",
-								Content: content,
-							}
-						}
-						builder.WriteString(content)
-
-					default:
-						fmt.Printf("Unknown type %v\n", content)
-					}
-				}
-				chatContext.TotalTokens = completition.Usage.TotalTokens
-			}
-		}
-
-		if builder.Len() > 0 {
-			println()
-			responseMessage.Content = builder.String()
-		}
-
-		resp.Body.Close()
 
 		// Beende die Schleife, wenn keine Tool-Calls mehr anstehen
 		if len(responseMessage.ToolCalls) == 0 {
 			break
+		} else {
+			// tool calls ausführen und ggf weiter machen
+			for _, toolCall := range responseMessage.ToolCalls {
+				callContent, err := cs.callTool(toolCall)
+				if err != nil {
+					return nil, err
+				}
+				chatContext.AddMessage(&request.Message{
+					Role:       "tool",
+					ToolCallId: toolCall.Id,
+					Content:    string(callContent),
+				})
+			}
 		}
 	}
 
