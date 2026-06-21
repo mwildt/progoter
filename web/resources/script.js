@@ -3,7 +3,6 @@ import {css, html, LitElement} from 'https://cdn.jsdelivr.net/gh/lit/dist@2/core
 import {marked} from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
 import DOMPurify from "https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.es.mjs";
 
-
 class AppLayout extends LitElement {
 
     constructor() {
@@ -218,7 +217,6 @@ class Message extends LitElement {
         const teaser = this.collapsed && this.message.content ? this.message.content.substring(0, 50) + '...' : '';
         let labels = [];
         if (this.message.tool_calls && this.message.tool_calls.length > 0) {
-            console.warn(this.message)
             const toolCall = this.message.tool_calls[0];
             labels.push(`${toolCall.function.name}#${toolCall.id}`);
         }
@@ -248,6 +246,7 @@ customElements.define('chat-message', Message);
 class InputBar extends LitElement {
     static properties = {
         value: {type: String},
+        processing: {}
     };
 
     static styles = css`
@@ -285,6 +284,7 @@ class InputBar extends LitElement {
     constructor() {
         super();
         this.value = '';
+        this.processing = false;
     }
 
     render() {
@@ -294,9 +294,8 @@ class InputBar extends LitElement {
                         .value=${this.value}
                         @input=${this.handleInput}
                         @keyup=${this.handleKeyUp}
-                        placeholder="Type your message here..."
-                ></textarea>
-                <button @click=${this.handleSend}>Send</button>
+                        placeholder="Type your message here..." ></textarea>
+                <button ?disabled=${this.processing} @click=${this.handleSend}>Send</button>
             </div>
         `;
     }
@@ -322,7 +321,7 @@ class InputBar extends LitElement {
     }
 
     handleSend() {
-        if (this.value.trim() !== '') {
+        if (!this.processing && this.value.trim() !== '') {
             this.dispatchEvent(new CustomEvent('send-message', {detail: {message: this.value}}));
             this.value = '';
         }
@@ -511,14 +510,10 @@ class ChatApp extends LitElement {
                 `}
                 <div class="input-area">
                     ${initial ? html`<h3>Was geht up?</h3>` : undefined}
-                    <chat-input @send-message=${this.sendMessage} @input-change=${this.handleInputChange}></chat-input>
+                    <chat-input .processing=${this.isLoading} @send-message=${this.sendMessage} ></chat-input>
                 </div>
             </div>
         `;
-    }
-
-    handleInputChange(e) {
-        this.inputValue = e.detail.value;
     }
 
     scrollToBottom() {
@@ -559,7 +554,7 @@ class ChatApp extends LitElement {
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
-            var buffer = "";
+            let buffer = "";
             let currentMessageIndex = assistantMessageIndex;
             while (true) {
                 const {done, value} = await reader.read();
