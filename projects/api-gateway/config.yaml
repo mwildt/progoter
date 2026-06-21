@@ -1,0 +1,6 @@
+users:
+  - username: admin
+    password: "$argon2id$v=19$m=65536,t=3,p=2$c2FsdHlzYWx0$R21qbzJzYW1qbzJzYW1qbzJzYW1qbw" # admin123
+
+upstream:
+  url: "http://example.com"
