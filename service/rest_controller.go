@@ -13,17 +13,17 @@ import (
 )
 
 type RESTController struct {
-	chatService  *ChatService
-	chatContext  *ChatContext
-	mu           sync.Mutex
-	isProcessing bool
+	chatService    *ChatService
+	contextManager *ContextManager
+	mu             sync.Mutex
+	isProcessing   bool
 }
 
 func NewRESTController(apiKey string) *RESTController {
 	return &RESTController{
-		chatService:  NewChatService(apiKey),
-		chatContext:  NewChatContext(),
-		isProcessing: false,
+		chatService:    NewChatService(apiKey),
+		contextManager: NewContextManager(),
+		isProcessing:   false,
 	}
 }
 
@@ -45,15 +45,26 @@ func (rc *RESTController) StopProcessing() {
 	rc.isProcessing = false
 }
 
-// ClearContextHandler setzt den Chat-Kontext zurück.
+// ClearContextHandler setzt den Chat-Kontext für die gegebene ID zurück.
 func (rc *RESTController) ClearContextHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		id = "default"
+	}
+
 	if !rc.StartProcessing() {
 		http.Error(w, "Eine Aktion läuft bereits", http.StatusConflict)
 		return
 	}
 	defer rc.StopProcessing()
 
-	err := rc.ClearContext()
+	chatContext, exists := rc.contextManager.GetContext(id)
+	if !exists {
+		http.Error(w, "Chat-Kontext nicht gefunden", http.StatusNotFound)
+		return
+	}
+
+	err := chatContext.ClearMessages()
 	if err != nil {
 		slog.Error("Fehler beim Zurücksetzen des Chatverlaufs", "error", err)
 		http.Error(w, "Fehler beim Zurücksetzen des Chatverlaufs", http.StatusInternalServerError)
@@ -64,15 +75,26 @@ func (rc *RESTController) ClearContextHandler(w http.ResponseWriter, r *http.Req
 	fmt.Fprintf(w, "Chat-Kontext wurde erfolgreich zurückgesetzt.")
 }
 
-// DumpContextHandler speichert den aktuellen Chat-Kontext als JSON-Datei.
+// DumpContextHandler speichert den Chat-Kontext für die gegebene ID als JSON-Datei.
 func (rc *RESTController) DumpContextHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		id = "default"
+	}
+
 	if !rc.StartProcessing() {
 		http.Error(w, "Eine Aktion läuft bereits", http.StatusConflict)
 		return
 	}
 	defer rc.StopProcessing()
 
-	err := rc.DumpContext()
+	chatContext, exists := rc.contextManager.GetContext(id)
+	if !exists {
+		http.Error(w, "Chat-Kontext nicht gefunden", http.StatusNotFound)
+		return
+	}
+
+	err := rc.dumpContext(chatContext)
 	if err != nil {
 		slog.Error("Fehler beim Schreiben des Chatverlaufs", "error", err)
 		http.Error(w, "Fehler beim Schreiben des Chatverlaufs", http.StatusInternalServerError)
@@ -83,15 +105,26 @@ func (rc *RESTController) DumpContextHandler(w http.ResponseWriter, r *http.Requ
 	fmt.Fprintf(w, "Chat-Kontext wurde erfolgreich gespeichert.")
 }
 
-// CompactChatHandler komprimiert den Chatverlauf.
+// CompactChatHandler komprimiert den Chatverlauf für die gegebene ID.
 func (rc *RESTController) CompactChatHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		id = "default"
+	}
+
 	if !rc.StartProcessing() {
 		http.Error(w, "Eine Aktion läuft bereits", http.StatusConflict)
 		return
 	}
 	defer rc.StopProcessing()
 
-	err := rc.CompactChat()
+	chatContext, exists := rc.contextManager.GetContext(id)
+	if !exists {
+		http.Error(w, "Chat-Kontext nicht gefunden", http.StatusNotFound)
+		return
+	}
+
+	err := rc.compactChat(chatContext)
 	if err != nil {
 		slog.Error("Fehler beim Komprimieren des Chatverlaufs", "error", err)
 		http.Error(w, "Fehler beim Komprimieren des Chatverlaufs", http.StatusInternalServerError)
@@ -108,6 +141,15 @@ type PostMessageRequestDTO struct {
 
 // MessageHandler sendet eine Nachricht und liefert einen SSE-Stream mit Events.
 func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		id = "default"
+	}
+
+	chatContext, exists := rc.contextManager.GetContext(id)
+	if !exists {
+		chatContext = rc.contextManager.CreateContext(id)
+	}
 
 	go func() {
 		<-r.Context().Done()
@@ -133,7 +175,7 @@ func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Connection", "keep-alive")
 
 	// Füge die Nachricht zum Chat-Kontext hinzu
-	rc.chatContext.AddMessage(&request.Message{
+	chatContext.AddMessage(&request.Message{
 		Role:    "user",
 		Content: messageRequest.Message,
 	})
@@ -161,7 +203,7 @@ func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request)
 				slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", errError)
 			}
 		}()
-		_, errError = rc.chatService.CompleteContext(r.Context(), rc.chatContext, messageChan)
+		_, errError = rc.chatService.CompleteContext(r.Context(), chatContext, messageChan)
 	}()
 
 	// Sende SSE-Ereignisse an den Client
@@ -181,8 +223,8 @@ func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-// CompactChat komprimiert den Chatverlauf.
-func (rc *RESTController) CompactChat() error {
+// compactChat komprimiert den gegebenen Chat-Kontext.
+func (rc *RESTController) compactChat(chatContext *ChatContext) error {
 	summarizeMessage := &request.Message{
 		Role: "user",
 		Content: `
@@ -207,10 +249,10 @@ Fasse den bisherigen Chatverlauf zusammen. Ziel ist es, **alle fachlichen Inform
 `,
 	}
 
-	rc.chatContext.AddMessage(summarizeMessage)
+	chatContext.AddMessage(summarizeMessage)
 	var messageChan chan *request.Message = nil
 
-	compactedContext, err := rc.chatService.CompleteContext(context.Background(), rc.chatContext, messageChan)
+	compactedContext, err := rc.chatService.CompleteContext(context.Background(), chatContext, messageChan)
 	if err != nil {
 		return fmt.Errorf("Fehler beim Komprimieren des Chatverlaufs: %v", err)
 	}
@@ -236,12 +278,12 @@ Fasse den bisherigen Chatverlauf zusammen. Ziel ist es, **alle fachlichen Inform
 		},
 	}
 
-	rc.chatContext = newContext
+	chatContext.Messages = newContext.Messages
 	return nil
 }
 
-// DumpContext speichert den aktuellen Chat-Kontext als JSON-Datei.
-func (rc *RESTController) DumpContext() error {
+// dumpContext speichert den gegebenen Chat-Kontext als JSON-Datei.
+func (rc *RESTController) dumpContext(chatContext *ChatContext) error {
 	timestamp := time.Now().Format("20060102-150405")
 	filename := fmt.Sprintf("dumps/context.%s.json", timestamp)
 
@@ -258,7 +300,7 @@ func (rc *RESTController) DumpContext() error {
 
 	encoder := json.NewEncoder(file)
 	encoder.SetIndent("", "  ")
-	err = encoder.Encode(rc.chatContext)
+	err = encoder.Encode(chatContext)
 	if err != nil {
 		return fmt.Errorf("Fehler beim Schreiben des JSON: %v", err)
 	}
@@ -267,7 +309,12 @@ func (rc *RESTController) DumpContext() error {
 }
 
 // ClearContext setzt den Chat-Kontext zurück.
-func (rc *RESTController) ClearContext() error {
+func (rc *RESTController) ClearContext(w http.ResponseWriter, r *http.Request) error {
+	id := r.PathValue("id")
+	if id == "" {
+		id = "default"
+	}
+
 	systemPrompt, err := readSystemPrompt()
 	if err != nil {
 		systemPrompt = "Du bist ein hilfreicher Agent bei der Programmierung von golang apps."
@@ -279,16 +326,27 @@ func (rc *RESTController) ClearContext() error {
 		},
 	}
 
-	rc.chatContext = newContext
+	rc.contextManager.SetContext(id, newContext)
 	return nil
 }
 
-// GetContextHandler gibt den aktuellen Chat-Kontext als JSON zurück.
+// GetContextHandler gibt den Chat-Kontext für die gegebene ID als JSON zurück.
 func (rc *RESTController) GetContextHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		id = "default"
+	}
+
+	chatContext, exists := rc.contextManager.GetContext(id)
+	if !exists {
+		http.Error(w, "Chat-Kontext nicht gefunden", http.StatusNotFound)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	encoder := json.NewEncoder(w)
 	encoder.SetIndent("", "  ")
-	err := encoder.Encode(rc.chatContext)
+	err := encoder.Encode(chatContext)
 	if err != nil {
 		slog.Error("Fehler beim Kodieren des Chat-Kontexts", "error", err)
 		http.Error(w, "Fehler beim Kodieren des Chat-Kontexts", http.StatusInternalServerError)
@@ -298,9 +356,9 @@ func (rc *RESTController) GetContextHandler(w http.ResponseWriter, r *http.Reque
 
 // SetupRoutes richtet die REST-Routen ein.
 func (rc *RESTController) SetupRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /chat/default/clear", rc.ClearContextHandler)
-	mux.HandleFunc("GET /chat/default/dump", rc.DumpContextHandler)
-	mux.HandleFunc("POST /chat/default/compact", rc.CompactChatHandler)
-	mux.HandleFunc("POST /chat/default/message", rc.MessageHandler)
-	mux.HandleFunc("GET /chat/default/context", rc.GetContextHandler)
+	mux.HandleFunc("POST /chat/{id}/clear", rc.ClearContextHandler)
+	mux.HandleFunc("GET /chat/{id}/dump", rc.DumpContextHandler)
+	mux.HandleFunc("POST /chat/{id}/compact", rc.CompactChatHandler)
+	mux.HandleFunc("POST /chat/{id}/message", rc.MessageHandler)
+	mux.HandleFunc("GET /chat/{id}/context", rc.GetContextHandler)
 }

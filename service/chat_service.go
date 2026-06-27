@@ -191,13 +191,13 @@ func (cs *ChatService) CompleteContext(ctx context.Context, chatContext *ChatCon
 				callContent, err := cs.callTool(ctx, chatContext, toolCall)
 				if err != nil {
 					slog.Default().Error("Felgler beim aufruf eines tools", "tool", toolCall.Type, "error", err)
-					return nil, err
 				}
 				chatContext.AddMessage(&request.Message{
 					Role:       "tool",
 					ToolCallId: toolCall.Id,
 					Content:    string(callContent),
 				})
+
 			}
 		}
 	}
@@ -228,6 +228,8 @@ func (cs *ChatService) callTool(ctx context.Context, chatContext *ChatContext, c
 		return tools.StopProcessTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else if call.Function.Name == "check" {
 		return tools.CheckTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
+	} else if call.Function.Name == "replace_file_lines" {
+		return tools.ReplaceFileLinesTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else {
 		return nil, errors.New("tool nicht gefunden")
 	}

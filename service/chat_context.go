@@ -1,6 +1,8 @@
 package service
 
 import (
+	"os"
+
 	"github.com/mwildt/progoter/request"
 )
 
@@ -9,6 +11,15 @@ type ChatContext struct {
 	BasePath    string
 	Messages    []*request.Message `json:"messages"`
 	TotalTokens int                `json:"total_tokens"`
+}
+
+// readSystemPrompt liest den System-Prompt aus einer Datei.
+func readSystemPrompt() (string, error) {
+	data, err := os.ReadFile("system_prompt.txt")
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 // NewChatContext creates a new ChatContext with an initial system message.
@@ -43,7 +54,7 @@ func (cc *ChatContext) GetMessages() []*request.Message {
 }
 
 // ClearMessages clears all messages in the chat context.
-func (cc *ChatContext) ClearMessages() {
+func (cc *ChatContext) ClearMessages() error {
 	systemPrompt, err := readSystemPrompt()
 	if err != nil {
 		// Fallback to default system prompt if file reading fails
@@ -52,4 +63,5 @@ func (cc *ChatContext) ClearMessages() {
 	cc.Messages = []*request.Message{
 		{Role: "system", Content: systemPrompt},
 	}
+	return nil
 }

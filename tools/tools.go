@@ -8,11 +8,11 @@ func GetTools() []request.Tool {
 		WriteFileTool{}.GetTool(),
 		ListFilesTool{}.GetTool(),
 		ReadFileTool{}.GetTool(),
+		CreateDirTool{}.GetTool(),
+		ReplaceFileLinesTool{}.GetTool(),
 		ReplaceFileContentTool{}.GetTool(),
 		GitDoTool{}.GetTool(),
 		GitDiffTool{}.GetTool(),
-		CreateDirTool{}.GetTool(),
 		StopProcessTool{}.GetTool(),
-		CheckTool{}.GetTool(),
 	}
 }

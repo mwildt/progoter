@@ -50,7 +50,7 @@ func (t CheckTool) Execute(basePath string, args string) ([]byte, error) {
 	cmd := exec.Command("podman", "run",
 		"--rm",
 		"-w", "/workspace",
-		"-v", fmt.Sprintf("%s:/workspace", basePath),
+		"-v", fmt.Sprintf("%s:/workspace:ro", basePath),
 		"docker.io/library/golang:latest",
 		"bash", "-c", src)
 

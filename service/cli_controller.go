@@ -8,7 +8,6 @@ import (
 	"github.com/mwildt/progoter/request"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -175,27 +174,6 @@ func (cc *CLIController) ClearContext() error {
 	cc.chatContext = newContext
 	fmt.Println("\nChat-Context wurde erfolgreich zurückgesetzt.")
 	return nil
-}
-
-// readSystemPrompt reads the system prompt from the prompts/system-default.md file.
-func readSystemPrompt() (string, error) {
-	// Get the current working directory
-	cwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	// Construct the path to the system prompt file
-	promptPath := filepath.Join(cwd, "prompts", "system-default.md")
-
-	// Read the file content
-	content, err := os.ReadFile(promptPath)
-	if err != nil {
-		return "", err
-	}
-
-	// Convert the content to a string and trim any leading/trailing whitespace
-	return strings.TrimSpace(string(content)), nil
 }
 
 // listenForMessages hört auf Nachrichten im Channel und gibt sie aus.
