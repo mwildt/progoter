@@ -39,7 +39,7 @@ func (cm *ContextManager) GetContext(id string) (*ChatContext, bool) {
 func (cm *ContextManager) SetContext(id string, cc *ChatContext) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	cm.contexts[id] = NewChatContext()
+	cm.contexts[id] = cc
 }
 
 // DeleteContext löscht den Chat-Kontext für die gegebene ID.
@@ -53,6 +53,13 @@ func (cm *ContextManager) DeleteContext(id string) {
 func (cm *ContextManager) ListContexts() []string {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
+
+	ids := make([]string, 0, len(cm.contexts))
+	for id := range cm.contexts {
+		ids = append(ids, id)
+	}
+	return ids
+}
 
 	ids := make([]string, 0, len(cm.contexts))
 	for id := range cm.contexts {

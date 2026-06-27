@@ -203,7 +203,7 @@ func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request)
 				slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", errError)
 			}
 		}()
-		_, errError = rc.chatService.CompleteContext(r.Context(), chatContext, messageChan)
+		_, errError = rc.chatService.CompleteContext(context.Background(), chatContext, messageChan)
 	}()
 
 	// Sende SSE-Ereignisse an den Client
@@ -220,6 +220,50 @@ func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request)
 
 	if errError != nil {
 		http.Error(w, "Fehler beim Verarbeiten der Chat-Vervollständigung", http.StatusInternalServerError)
+	}
+}
+
+// ContextHandler liefert einen SSE-Stream mit den aktuellen Nachrichten im Chat-Kontext.
+func (rc *RESTController) ContextHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		id = "default"
+	}
+
+	chatContext, exists := rc.contextManager.GetContext(id)
+	if !exists {
+		http.Error(w, "Chat-Kontext nicht gefunden", http.StatusNotFound)
+		return
+	}
+
+	// Setze den Content-Type-Header für SSE
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	// Erstelle einen Kanal für den SSE-Client
+	clientChan := make(chan string)
+	defer chatContext.UnregisterSSEClient(clientChan)
+
+	// Registriere den SSE-Client
+	chatContext.RegisterSSEClient(clientChan)
+
+	// Sende die aktuellen Nachrichten an den Client
+	for _, msg := range chatContext.GetMessages() {
+		data, _ := json.Marshal(msg)
+		event := fmt.Sprintf("data: %s\n\n", string(data))
+		fmt.Fprintf(w, event)
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
+	}
+
+	// Warte auf neue Nachrichten und sende sie an den Client
+	for event := range clientChan {
+		fmt.Fprintf(w, event)
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush()
+		}
 	}
 }
 
@@ -248,6 +292,121 @@ Fasse den bisherigen Chatverlauf zusammen. Ziel ist es, **alle fachlichen Inform
 - Keine Einleitungen wie "Hier ist die Zusammenfassung:".
 `,
 	}
+
+	chatContext.AddMessage(summarizeMessage)
+	var messageChan chan *request.Message = nil
+
+	compactedContext, err := rc.chatService.CompleteContext(context.Background(), chatContext, messageChan)
+	if err != nil {
+		return fmt.Errorf("Fehler beim Komprimieren des Chatverlaufs: %v", err)
+	}
+
+	var summary string
+	messages := compactedContext.GetMessages()
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role == "assistant" {
+			summary = messages[i].Content
+			break
+		}
+	}
+
+	systemPrompt, err := readSystemPrompt()
+	if err != nil {
+		systemPrompt = "Du bist ein hilfreicher Agent bei der Programmierung von golang apps."
+	}
+
+	newContext := &ChatContext{
+		Messages: []*request.Message{
+			{Role: "system", Content: systemPrompt},
+			{Role: "assistant", Content: summary},
+		},
+	}
+
+	chatContext.Messages = newContext.Messages
+	return nil
+}
+
+// dumpContext speichert den gegebenen Chat-Kontext als JSON-Datei.
+func (rc *RESTController) dumpContext(chatContext *ChatContext) error {
+	timestamp := time.Now().Format("20060102-150405")
+	filename := fmt.Sprintf("dumps/context.%s.json", timestamp)
+
+	err := os.MkdirAll("dumps", os.ModePerm)
+	if err != nil {
+		return fmt.Errorf("Fehler beim Erstellen des Verzeichnisses: %v", err)
+	}
+
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("Fehler beim Erstellen der Datei: %v", err)
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	err = encoder.Encode(chatContext)
+	if err != nil {
+		return fmt.Errorf("Fehler beim Schreiben des JSON: %v", err)
+	}
+
+	return nil
+}
+
+// ClearContext setzt den Chat-Kontext zurück.
+func (rc *RESTController) ClearContext(w http.ResponseWriter, r *http.Request) error {
+	id := r.PathValue("id")
+	if id == "" {
+		id = "default"
+	}
+
+	systemPrompt, err := readSystemPrompt()
+	if err != nil {
+		systemPrompt = "Du bist ein hilfreicher Agent bei der Programmierung von golang apps."
+	}
+
+	newContext := &ChatContext{
+		Messages: []*request.Message{
+			{Role: "system", Content: systemPrompt},
+		},
+	}
+
+	rc.contextManager.SetContext(id, newContext)
+	return nil
+}
+
+// GetContextHandler gibt den Chat-Kontext für die gegebene ID als JSON zurück.
+func (rc *RESTController) GetContextHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		id = "default"
+	}
+
+	chatContext, exists := rc.contextManager.GetContext(id)
+	if !exists {
+		http.Error(w, "Chat-Kontext nicht gefunden", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	encoder := json.NewEncoder(w)
+	encoder.SetIndent("", "  ")
+	err := encoder.Encode(chatContext)
+	if err != nil {
+		slog.Error("Fehler beim Kodieren des Chat-Kontexts", "error", err)
+		http.Error(w, "Fehler beim Kodieren des Chat-Kontexts", http.StatusInternalServerError)
+		return
+	}
+}
+
+// SetupRoutes richtet die REST-Routen ein.
+func (rc *RESTController) SetupRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("POST /chat/{id}/clear", rc.ClearContextHandler)
+	mux.HandleFunc("GET /chat/{id}/dump", rc.DumpContextHandler)
+	mux.HandleFunc("POST /chat/{id}/compact", rc.CompactChatHandler)
+	mux.HandleFunc("POST /chat/{id}/message", rc.MessageHandler)
+	mux.HandleFunc("GET /chat/{id}/context", rc.ContextHandler)
+	mux.HandleFunc("GET /chat/{id}/context/stream", rc.ContextHandler)
+}
 
 	chatContext.AddMessage(summarizeMessage)
 	var messageChan chan *request.Message = nil

@@ -10,7 +10,7 @@ func GetTools() []request.Tool {
 		ReadFileTool{}.GetTool(),
 		CreateDirTool{}.GetTool(),
 		ReplaceFileLinesTool{}.GetTool(),
-		ReplaceFileContentTool{}.GetTool(),
+		//ReplaceFileContentTool{}.GetTool(),
 		GitDoTool{}.GetTool(),
 		GitDiffTool{}.GetTool(),
 		StopProcessTool{}.GetTool(),

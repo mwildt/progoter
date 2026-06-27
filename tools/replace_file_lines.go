@@ -27,7 +27,7 @@ func (t ReplaceFileLinesTool) GetTool() request.Tool {
 		Type: "function",
 		Function: request.ToolFunction{
 			Name:        "replace_file_lines",
-			Description: "Ersetzt einen Bereich von Zeilen in einer Datei",
+			Description: "Ersetzt einen Bereich von Zeilen in einer Datei. ",
 			Parameters: request.FunctionParams{
 				Type: "object",
 				Properties: map[string]request.ArgumentProperty{
