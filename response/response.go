@@ -1,5 +1,10 @@
 package response
 
+import "github.com/mwildt/progoter/request"
+
+type ToolCallChoice request.ToolCallChoice
+type Usage request.Usage
+
 type ChatCompletion struct {
 	ID      string   `json:"id"`
 	Created int64    `json:"created"`
@@ -7,13 +12,6 @@ type ChatCompletion struct {
 	Object  string   `json:"object"`
 	Usage   Usage    `json:"usage"`
 	Choices []Choice `json:"choices"`
-}
-
-type Usage struct {
-	PromptTokens        int           `json:"prompt_tokens"`
-	TotalTokens         int           `json:"total_tokens"`
-	CompletionTokens    int           `json:"completion_tokens"`
-	PromptTokensDetails PromptDetails `json:"prompt_tokens_details"`
 }
 
 type PromptDetails struct {
@@ -48,22 +46,8 @@ type CompletionChunkChoice struct {
 }
 
 type Delta struct {
-	Role         string           `json:"role"`
-	Content      interface{}      `json:"content"`
-	ToolCalls    []ToolCallChoice `json:"tool_calls"`
-	FinishReason string           `json:"finish_reason"`
+	Role         string                   `json:"role"`
+	Content      interface{}              `json:"content"`
+	ToolCalls    []request.ToolCallChoice `json:"tool_calls"`
+	FinishReason string                   `json:"finish_reason"`
 }
-
-type ToolCallChoice struct {
-	Id       string       `json:"id"`
-	Index    int          `json:"index"`
-	Type     string       `json:"type"`
-	Function FunctionCall `json:"function"`
-}
-
-type FunctionCall struct {
-	Arguments string `json:"arguments"`
-	Name      string `json:"name"`
-}
-
-// :[{"index":0,"delta":{"tool_calls":[{"id":"IjcVstBlj","type":"function","function":{"name":"list_files","arguments":"{}"},"index":0}]},"finish_reason":"tool_calls"}]

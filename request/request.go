@@ -1,12 +1,29 @@
 package request
 
-import "github.com/mwildt/progoter/response"
-
 type Message struct {
-	Role       string                    `json:"role"`
-	ToolCallId string                    `json:"tool_call_id,omitempty"`
-	ToolCalls  []response.ToolCallChoice `json:"tool_calls,omitempty"`
-	Content    string                    `json:"content,omitempty"`
+	Role       string           `json:"role"`
+	ToolCallId string           `json:"tool_call_id,omitempty"`
+	ToolCalls  []ToolCallChoice `json:"tool_calls,omitzero"`
+	Content    string           `json:"content,omitempty"`
+	Usage      Usage            `json:"usage,omitzero"`
+}
+
+type ToolCallChoice struct {
+	Id       string       `json:"id"`
+	Index    int          `json:"index"`
+	Type     string       `json:"type"`
+	Function FunctionCall `json:"function"`
+}
+
+type FunctionCall struct {
+	Arguments string `json:"arguments"`
+	Name      string `json:"name"`
+}
+
+type Usage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
 }
 
 type Tool struct {
@@ -33,8 +50,15 @@ type ToolFunction struct {
 }
 
 type ChatCompletion struct {
-	Model    string     `json:"model"`
-	Stream   bool       `json:"stream"`
-	Messages []*Message `json:"messages"`
-	Tools    []Tool     `json:"tools,omitempty"`
+	Model    string                   `json:"model"`
+	Stream   bool                     `json:"stream"`
+	Messages []*ChatCompletionMessage `json:"messages"`
+	Tools    []Tool                   `json:"tools,omitempty"`
+}
+
+type ChatCompletionMessage struct {
+	Role       string           `json:"role"`
+	ToolCallId string           `json:"tool_call_id,omitempty"`
+	ToolCalls  []ToolCallChoice `json:"tool_calls,omitempty"`
+	Content    string           `json:"content,omitempty"`
 }

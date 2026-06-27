@@ -6,6 +6,7 @@ import (
 
 // ChatContext represents a collection of messages in a chat.
 type ChatContext struct {
+	BasePath    string
 	Messages    []*request.Message `json:"messages"`
 	TotalTokens int                `json:"total_tokens"`
 }
@@ -19,6 +20,7 @@ func NewChatContext() *ChatContext {
 		systemPrompt = "Du bist ein hilfreicher Agent bei der Programmierung von golang apps."
 	}
 	return &ChatContext{
+		BasePath: "./",
 		Messages: []*request.Message{
 			{Role: "system", Content: systemPrompt},
 		},

@@ -71,6 +71,8 @@ func readResponse(body io.Reader, messageChan chan *request.Message) (result *re
 				builder.WriteString(content)
 			}
 
+			result.Usage = request.Usage(completition.Usage)
+
 			// tool-calls
 			if len(choice.Delta.ToolCalls) > 0 {
 				result.ToolCalls = append(result.ToolCalls, choice.Delta.ToolCalls...)
@@ -90,10 +92,22 @@ func readResponse(body io.Reader, messageChan chan *request.Message) (result *re
 }
 
 func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*request.Message, messageChan chan *request.Message) (*request.Message, error) {
+
+	projected := make([]*request.ChatCompletionMessage, len(messages))
+
+	for i, u := range messages {
+		projected[i] = &request.ChatCompletionMessage{
+			Role:       u.Role,
+			ToolCallId: u.ToolCallId,
+			ToolCalls:  u.ToolCalls,
+			Content:    u.Content,
+		}
+	}
+
 	jsonData, err := json.Marshal(&request.ChatCompletion{
 		Model:    "devstral-medium-latest",
 		Stream:   true,
-		Messages: messages,
+		Messages: projected,
 		Tools:    tools.GetTools(),
 	})
 
@@ -174,8 +188,9 @@ func (cs *ChatService) CompleteContext(ctx context.Context, chatContext *ChatCon
 		} else {
 			// tool calls ausführen und ggf weiter machen
 			for _, toolCall := range responseMessage.ToolCalls {
-				callContent, err := cs.callTool(toolCall)
+				callContent, err := cs.callTool(ctx, chatContext, toolCall)
 				if err != nil {
+					slog.Default().Error("Felgler beim aufruf eines tools", "tool", toolCall.Type, "error", err)
 					return nil, err
 				}
 				chatContext.AddMessage(&request.Message{
@@ -191,26 +206,28 @@ func (cs *ChatService) CompleteContext(ctx context.Context, chatContext *ChatCon
 }
 
 // callTool ruft ein Tool auf und gibt das Ergebnis zurück.
-func (cs *ChatService) callTool(call response.ToolCallChoice) ([]byte, error) {
+func (cs *ChatService) callTool(ctx context.Context, chatContext *ChatContext, call request.ToolCallChoice) ([]byte, error) {
 
 	slog.Default().Info("Tool Call", "tool", call.Function.Name, "call_id", call.Id)
 
 	if call.Function.Name == "read_file" {
-		return tools.ReadFile(call.Function.Arguments)
+		return tools.ReadFileTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else if call.Function.Name == "replace_file_content" {
-		return tools.ReplaceFileContent(call.Function.Arguments)
+		return tools.ReplaceFileContentTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else if call.Function.Name == "list_files" {
-		return tools.ListFiles(call.Function.Arguments)
+		return tools.ListFilesTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else if call.Function.Name == "write_file" {
-		return tools.WriteFile(call.Function.Arguments)
+		return tools.WriteFileTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else if call.Function.Name == "git_do" {
-		return tools.GitDo(call.Function.Arguments)
+		return tools.GitDoTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else if call.Function.Name == "git_diff" {
-		return tools.GitDiff(call.Function.Arguments)
+		return tools.GitDiffTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else if call.Function.Name == "create_dir" {
-		return tools.CreateDir(call.Function.Arguments)
+		return tools.CreateDirTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else if call.Function.Name == "stop_process" {
-		return tools.StopProcess(call.Function.Arguments)
+		return tools.StopProcessTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
+	} else if call.Function.Name == "check" {
+		return tools.CheckTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else {
 		return nil, errors.New("tool nicht gefunden")
 	}

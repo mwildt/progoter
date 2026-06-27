@@ -24,7 +24,7 @@ func main() {
 }
 
 func loadEnv() {
-	// Öffne die .env-Datei
+	// Öffne die .env-Dateihat
 	file, err := os.Open(".env")
 	if err != nil {
 		slog.Error("Fehler beim Öffnen der .env-Datei", "error", err)

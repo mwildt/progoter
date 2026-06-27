@@ -186,6 +186,29 @@ class Message extends LitElement {
         .tool-call.visible .tool-call-details {
             display: block;
         }
+
+        .use-info {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border-left: 3px solid #adb5bd;
+        }
+
+        .use-info pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #495057;
+        }
+
+        .usage-info {
+            margin-left: 10px;
+            font-size: 12px;
+            color: #6c757d;
+            font-weight: normal;
+        }
     `;
 
     toggleCollapse() {
@@ -213,6 +236,31 @@ class Message extends LitElement {
         `;
     }
 
+    renderUseInfo() {
+        if (!this.message.use_info) {
+            return html``;
+        }
+
+        return html`
+            <div class="use-info">
+                <h4>Use Info:</h4>
+                <pre>${JSON.stringify(this.message.use_info, null, 2)}</pre>
+            </div>
+        `;
+    }
+
+    renderUsageInfo() {
+        if (!this.message.usage) {
+            return html``;
+        }
+
+        return html`
+            <span class="usage-info">
+                Tokens: ${this.message.usage.total_tokens} (Prompt: ${this.message.usage.prompt_tokens}, Completion: ${this.message.usage.completion_tokens})
+            </span>
+        `;
+    }
+
     render() {
         const teaser = this.collapsed && this.message.content ? this.message.content.substring(0, 50) + '...' : '';
         let labels = [];
@@ -229,11 +277,13 @@ class Message extends LitElement {
                     <span>${this.message.role}</span>
                     ${labels.map(label => html`<span class="tool-call-label">${label}</span>`)}
                     <span class="message-teaser">${teaser}</span>
+                    ${this.renderUsageInfo()}
                     <span>${this.collapsed ? '▶' : '▼'}</span>
                 </div>
                 <div class="message-content ${this.collapsed ? '' : 'visible'}">
                     <markdown-view .content=${this.message.content}></markdown-view>
                     ${this.renderToolCalls()}
+                    ${this.renderUseInfo()}
                 </div>
             </div>
         `;
