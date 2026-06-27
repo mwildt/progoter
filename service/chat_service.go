@@ -212,8 +212,8 @@ func (cs *ChatService) callTool(ctx context.Context, chatContext *ChatContext, c
 
 	if call.Function.Name == "read_file" {
 		return tools.ReadFileTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
-	} else if call.Function.Name == "replace_file_content" {
-		return tools.ReplaceFileContentTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
+	} else if call.Function.Name == "edit_file" {
+		return tools.EditFileTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else if call.Function.Name == "list_files" {
 		return tools.ListFilesTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else if call.Function.Name == "write_file" {

@@ -2,13 +2,11 @@ package tools
 
 import (
 	"encoding/json"
-	"fmt"
+	"github.com/mwildt/progoter/request"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-
-	"github.com/mwildt/progoter/request"
 )
 
 // ReplaceFileContentArgs enthält die Argumente für das replace_file_content Tool
@@ -19,15 +17,18 @@ type ReplaceFileContentArgs struct {
 	ReplaceAll bool   `json:"replace_all,omitempty"`
 }
 
-// ReplaceFileContentTool implementiert das ToolHandler-Interface für replace_file_content
-type ReplaceFileContentTool struct{}
+// StatusResponse enthält den Status und eine Nachricht oder Fehler
 
-func (t ReplaceFileContentTool) GetTool() request.Tool {
+// EditFileTool implementiert das ToolHandler-Interface für replace_file_content
+type EditFileTool struct {
+}
+
+func (t EditFileTool) GetTool() request.Tool {
 	return request.Tool{
 		Type: "function",
 		Function: request.ToolFunction{
-			Name:        "replace_file_content",
-			Description: "Ersetzt einen Teil des Inhalts einer Datei",
+			Name:        "edit_file",
+			Description: "Ersetzt einen Teil des Inhalts einer Datei. Der zu ersetzende Teil muss byte-genau angegeben werden.",
 			Parameters: request.FunctionParams{
 				Type: "object",
 				Properties: map[string]request.ArgumentProperty{
@@ -60,40 +61,46 @@ func (t ReplaceFileContentTool) GetTool() request.Tool {
 	}
 }
 
-func (t ReplaceFileContentTool) Execute(basePath string, args string) ([]byte, error) {
+func (t EditFileTool) Execute(basePath string, args string) ([]byte, error) {
 	var replaceFileContentArgs ReplaceFileContentArgs
 	err := json.Unmarshal([]byte(args), &replaceFileContentArgs)
 	if err != nil {
-		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
-		return status, err
+		return t.errorResponse("Fehler beim Parsen der Argumente: " + err.Error())
+	}
+
+	// Validierung der Argumente
+	if replaceFileContentArgs.OldContent == replaceFileContentArgs.NewContent {
+		return t.errorResponse("old_content und new_content sind identisch. Keine Änderungen erforderlich.")
+	}
+
+	if replaceFileContentArgs.OldContent == "" {
+		return t.errorResponse("old_content darf nicht leer sein.")
 	}
 
 	finalPath, err := filepath.Abs(path.Join(basePath, replaceFileContentArgs.Path))
 	if err != nil {
-		return nil, err
+		return t.errorResponse("Fehler beim Erstellen des absoluten Pfads: " + err.Error())
 	}
 
 	// Überprüfe, ob die Datei existiert
 	if _, err := os.Stat(finalPath); os.IsNotExist(err) {
-		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
-		return status, err
+		return t.errorResponse("Die Datei existiert nicht: " + finalPath)
 	}
 
 	// Lese den Inhalt der Datei
 	content, err := os.ReadFile(finalPath)
 	if err != nil {
-		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
-		return status, err
+		return t.errorResponse("Fehler beim Lesen der Datei: " + err.Error())
 	}
 
 	fileContent := string(content)
 
 	// Prüfe, ob der zu ersetzende Inhalt vorhanden ist
 	if !strings.Contains(fileContent, replaceFileContentArgs.OldContent) {
-		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: "der zu ersetzende Inhalt wurde in der Datei nicht gefunden"})
-		return status, fmt.Errorf("der zu ersetzende Inhalt wurde in der Datei nicht gefunden")
+		return t.errorResponse("Der zu ersetzende Inhalt wurde in der Datei nicht gefunden.")
 	}
 
+	// Ersetze den Inhalt
 	var newFileContent string
 	if replaceFileContentArgs.ReplaceAll {
 		newFileContent = strings.ReplaceAll(fileContent, replaceFileContentArgs.OldContent, replaceFileContentArgs.NewContent)
@@ -101,12 +108,20 @@ func (t ReplaceFileContentTool) Execute(basePath string, args string) ([]byte, e
 		newFileContent = strings.Replace(fileContent, replaceFileContentArgs.OldContent, replaceFileContentArgs.NewContent, 1)
 	}
 
-	// Schreibe den neuen Inhalt zurück in die Datei
 	err = os.WriteFile(finalPath, []byte(newFileContent), 0644)
 	if err != nil {
-		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
-		return status, err
+		return t.errorResponse("Fehler beim Schreiben der Datei: " + err.Error())
 	}
 
-	return json.Marshal(StatusResponse{Status: "OK", Messsage: "Replacement erfolgreich"})
+	return t.successResponse("Replacement erfolgreich")
+}
+
+func (t *EditFileTool) errorResponse(message string) ([]byte, error) {
+	status := StatusResponse{Status: "ERROR", Error: message}
+	return json.Marshal(status)
+}
+
+func (t *EditFileTool) successResponse(message string) ([]byte, error) {
+	status := StatusResponse{Status: "OK", Message: message}
+	return json.Marshal(status)
 }

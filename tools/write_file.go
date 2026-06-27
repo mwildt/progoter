@@ -65,5 +65,5 @@ func (t WriteFileTool) Execute(basePath string, args string) ([]byte, error) {
 		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
 		return status, err
 	}
-	return json.Marshal(StatusResponse{Status: "OK", Messsage: "Datei erfolgreich geschrieben oder erstellt"})
+	return json.Marshal(StatusResponse{Status: "OK", Message: "Datei erfolgreich geschrieben oder erstellt"})
 }

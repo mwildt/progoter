@@ -56,5 +56,5 @@ func (t CreateDirTool) Execute(basePath string, args string) ([]byte, error) {
 		status, _ := json.Marshal(StatusResponse{Status: "ERROR", Error: err.Error()})
 		return status, err
 	}
-	return json.Marshal(StatusResponse{Status: "OK", Messsage: "Verzeichnis erfolgreich erstellt"})
+	return json.Marshal(StatusResponse{Status: "OK", Message: "Verzeichnis erfolgreich erstellt"})
 }

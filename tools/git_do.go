@@ -66,7 +66,7 @@ func (t GitDoTool) Execute(basePath string, args string) ([]byte, error) {
 		return status, err
 	}
 
-	return json.Marshal(StatusResponse{Status: "OK", Messsage: "Git-Operationen erfolgreich ausgeführt"})
+	return json.Marshal(StatusResponse{Status: "OK", Message: "Git-Operationen erfolgreich ausgeführt"})
 }
 
 // runCommand führt einen Befehl aus

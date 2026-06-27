@@ -106,5 +106,5 @@ func (t ReplaceFileLinesTool) Execute(basePath string, args string) ([]byte, err
 		return status, err
 	}
 
-	return json.Marshal(StatusResponse{Status: "OK", Messsage: "Zeilenersetzung erfolgreich"})
+	return json.Marshal(StatusResponse{Status: "OK", Message: "Zeilenersetzung erfolgreich"})
 }
