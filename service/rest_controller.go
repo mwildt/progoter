@@ -113,11 +113,6 @@ func (rc *RESTController) PostMessageHandler(w http.ResponseWriter, r *http.Requ
 		chatContext = rc.contextManager.CreateContext(id)
 	}
 
-	go func() {
-		<-r.Context().Done()
-		slog.Info("request abgebrochen", "error", r.Context().Err())
-	}()
-
 	var messageRequest PostMessageRequestDTO
 	err := json.NewDecoder(r.Body).Decode(&messageRequest)
 	if err != nil {
@@ -125,13 +120,7 @@ func (rc *RESTController) PostMessageHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Setze den Content-Type-Header für SSE
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
 	// Füge die Nachricht zum Chat-Kontext hinzu
-
 	message := &request.Message{
 		Role:    "user",
 		Content: messageRequest.Message,
@@ -143,51 +132,6 @@ func (rc *RESTController) PostMessageHandler(w http.ResponseWriter, r *http.Requ
 		http.Error(w, "Fehler beim Verarbeiten der Chat-Vervollständigung", http.StatusInternalServerError)
 	}
 
-	//messageChan := make(chan *request.Message)
-	//
-	//// Erstelle einen Kanal für die SSE-Ereignisse
-	//sseChan := make(chan string)
-	//
-	//go func() {
-	//	defer close(sseChan)
-	//	defer chatContext.CloseSubscriptions()
-	//	for msg := range messageChan {
-	//		if len(msg.Content) == 0 {
-	//			continue
-	//		}
-	//		data, _ := json.Marshal(msg)
-	//		sseChan <- fmt.Sprintf("data: %s\n\n", string(data))
-	//		chatContext.Broadcast(msg)
-	//	}
-	//
-	//}()
-	//
-	//// Verarbeite die Nachricht
-	//var errError error
-	//go func() {
-	//	defer func() {
-	//		if errError != nil {
-	//			slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", errError)
-	//		}
-	//	}()
-	//	_, errError = rc.chatService.CompleteContext(context.Background(), chatContext, messageChan)
-	//}()
-	//
-	//// Sende SSE-Ereignisse an den Client
-	//flusher, ok := w.(http.Flusher)
-	//if !ok {
-	//	http.Error(w, "Streaming nicht unterstützt", http.StatusInternalServerError)
-	//	return
-	//}
-	//
-	//for event := range sseChan {
-	//	fmt.Fprintf(w, event)
-	//	flusher.Flush()
-	//}
-
-	//if errError != nil {
-	//	http.Error(w, "Fehler beim Verarbeiten der Chat-Vervollständigung", http.StatusInternalServerError)
-	//}
 }
 
 // compactChat komprimiert den gegebenen Chat-Kontext.

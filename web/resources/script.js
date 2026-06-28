@@ -619,9 +619,7 @@ class ChatApp extends LitElement {
     }
 
     async sendMessage(e) {
-        const message = e.detail.message;
         this.isLoading = true;
-
         try {
             // Send message to the REST API
             const response = await fetch('http://localhost:8080/chat/default/message', {
@@ -629,70 +627,13 @@ class ChatApp extends LitElement {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({message: message}),
+                body: JSON.stringify({message: e.detail.message}),
             });
-
             if (!response.ok) {
                 throw new Error('Failed to send message');
             }
-            //
-            // // Add a placeholder message for the assistant's response
-            // const assistantMessageIndex = this.messages.length;
-            // this.messages = [...this.messages, {role: 'assistant', content: ''}];
-            // this.requestUpdate();
-            // this.scrollToBottom();
-            //
-            // const reader = response.body.getReader();
-            // const decoder = new TextDecoder();
-            // let buffer = "";
-            // let currentMessageIndex = assistantMessageIndex;
-            // while (true) {
-            //     const {done, value} = await reader.read();
-            //     if (done) break;
-            //
-            //     buffer += decoder.decode(value, {stream: true});
-            //
-            //     let parts = buffer.split("\n\n");
-            //     buffer = parts.pop(); // letzter evtl. unvollständiger Block bleibt drin
-            //
-            //     for (const part of parts) {
-            //         const line = part
-            //             .split("\n")
-            //             .find(l => l.startsWith("data:"));
-            //
-            //         if (!line) continue;
-            //
-            //         const data = line.replace("data: ", "").trim();
-            //         if (!data) continue;
-            //
-            //         if (data === "[DONE]") continue;
-            //
-            //         const json = JSON.parse(data);
-            //
-            //         // if (json.role && json.role !== this.messages[currentMessageIndex].role) {
-            //         //     // this.messages = [...this.messages, {
-            //         //     //     role: json.role,
-            //         //     //     content: json.content,
-            //         //     //     tool_calls: json.tool_calls,
-            //         //     //     tool_call_id: json.tool_call_id
-            //         //     // }];
-            //         //     // currentMessageIndex = this.messages.length - 1;
-            //         // } else {
-            //         //     // this.messages[currentMessageIndex] = {
-            //         //     //     ...this.messages[currentMessageIndex],
-            //         //     //     content: (this.messages[currentMessageIndex].content || "") + json.content,
-            //         //     //     tool_calls: [].concat(this.messages[currentMessageIndex].tool_calls || []).concat(json.tool_calls || [])
-            //         //     // };
-            //         // }
-            //     }
-            //     // this.requestUpdate();
-            //     this.scrollToBottom();
-            // }
         } catch (error) {
             console.error('Error:', error);
-            // this.messages = [...this.messages, {sender: 'Error', text: error.message}];
-            // this.requestUpdate();
-            // this.scrollToBottom();
         } finally {
             this.isLoading = false;
         }
