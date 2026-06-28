@@ -52,24 +52,27 @@ func (t ListFilesTool) Execute(basePath string, args string) ([]byte, error) {
 
 	var files []string
 	err = filepath.Walk(finalPath, func(path string, info os.FileInfo, err error) error {
-		if !info.IsDir() {
-			relPath, err := filepath.Rel(finalPath, path)
+		relPath, err := filepath.Rel(finalPath, path)
+		if err != nil {
+			return err
+		}
+
+		// Verzeichnisse mit einem Schrägstrich markieren
+		if info.IsDir() {
+			relPath += "/"
+		}
+
+		// Wenn ein Glob-Muster angegeben wurde, prüfe, ob die Datei oder das Verzeichnis dazu passt
+		if listFilesArgs.Pattern != "" {
+			matched, err := filepath.Match(listFilesArgs.Pattern, relPath)
 			if err != nil {
 				return err
 			}
-
-			// Wenn ein Glob-Muster angegeben wurde, prüfe, ob die Datei dazu passt
-			if listFilesArgs.Pattern != "" {
-				matched, err := filepath.Match(listFilesArgs.Pattern, relPath)
-				if err != nil {
-					return err
-				}
-				if matched {
-					files = append(files, relPath)
-				}
-			} else {
+			if matched {
 				files = append(files, relPath)
 			}
+		} else {
+			files = append(files, relPath)
 		}
 		return nil
 	})
