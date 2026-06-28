@@ -53,7 +53,6 @@ func (cc *ChatContext) AddMessage(message *request.Message) {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 	cc.addMessage(message)
-
 }
 
 func (cc *ChatContext) Complete(service *ChatService) error {
