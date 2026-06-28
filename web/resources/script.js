@@ -385,7 +385,8 @@ class ChatApp extends LitElement {
 
     connectedCallback() {
         super.connectedCallback();
-        this.loadChatContext();
+        // this.loadChatContext();
+        this.setupStream();
     }
 
     async compactChat() {
@@ -430,7 +431,8 @@ class ChatApp extends LitElement {
 
     static properties = {
         messages: {type: Array},
-        isLoading: {type: Boolean},
+        isLoading: {},
+        eventSource: {type: Object},
     };
 
     constructor() {
@@ -438,6 +440,7 @@ class ChatApp extends LitElement {
         this.messages = [];
         this.isLoading = false;
         this.needScoll = false;
+        this.eventSource = null;
     }
 
     updated(changedProperties) {
@@ -464,6 +467,47 @@ class ChatApp extends LitElement {
             setTimeout(() => this.scrollToBottom())
         } catch (error) {
             console.error('Error loading chat context:', error);
+        }
+    }
+
+    setupStream() {
+        this.eventSource = new EventSource('http://localhost:8080/chat/default/context');
+        this.eventSource.onfinish =  () => console.warn("finish")
+
+        this.eventSource.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+
+            let lastMessage = this.messages.length - 1;
+            const lastRole = this.messages.length > 0 ? this.messages[lastMessage].role : undefined
+
+            if (lastRole !== message.role) {
+                console.warn("NEW MESSAGE!!! lastMessage", lastMessage, "lastRole", lastRole, "message.role", message.role, message)
+                lastMessage++
+                this.messages = [...this.messages, message] ;
+            } else {
+                console.warn("APPEND MESSAGE!!! lastMessage", lastMessage, "lastRole", lastRole, "message.role", message.role, message)
+                this.messages[lastMessage] = {
+                    ...this.messages[lastMessage],
+                    ... message,
+                    content: (this.messages[lastMessage].content || '') + (message.content || ''),
+                    tool_calls: [].concat(this.messages[lastMessage].tool_calls || []).concat(message.tool_calls || []),
+                }
+            }
+            setTimeout(() => {
+                this.requestUpdate();
+                this.scrollToBottom();
+            })
+        };
+        this.eventSource.onerror = (error) => {
+            console.error('EventSource failed:', error);
+            this.eventSource.close();
+        };
+    }
+
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this.eventSource) {
+            this.eventSource.close();
         }
     }
 
@@ -541,7 +585,6 @@ class ChatApp extends LitElement {
         .input-area {
             padding: 2rem;
         }
-
     `;
 
     render() {
@@ -560,7 +603,9 @@ class ChatApp extends LitElement {
                 `}
                 <div class="input-area">
                     ${initial ? html`<h3>Was geht up?</h3>` : undefined}
-                    <chat-input .processing=${this.isLoading} @send-message=${this.sendMessage} ></chat-input>
+                    <chat-input .processing=${this.isLoading}
+                                @send-message=${this.sendMessage}
+                    ></chat-input>
                 </div>
             </div>
         `;
@@ -577,11 +622,6 @@ class ChatApp extends LitElement {
         const message = e.detail.message;
         this.isLoading = true;
 
-        // Add user message to the chat
-        this.messages = [...this.messages, {role: 'user', content: message}];
-        this.requestUpdate();
-        this.scrollToBottom();
-
         try {
             // Send message to the REST API
             const response = await fetch('http://localhost:8080/chat/default/message', {
@@ -595,64 +635,64 @@ class ChatApp extends LitElement {
             if (!response.ok) {
                 throw new Error('Failed to send message');
             }
-
-            // Add a placeholder message for the assistant's response
-            const assistantMessageIndex = this.messages.length;
-            this.messages = [...this.messages, {role: 'assistant', content: ''}];
-            this.requestUpdate();
-            this.scrollToBottom();
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
-            let currentMessageIndex = assistantMessageIndex;
-            while (true) {
-                const {done, value} = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, {stream: true});
-
-                let parts = buffer.split("\n\n");
-                buffer = parts.pop(); // letzter evtl. unvollständiger Block bleibt drin
-
-                for (const part of parts) {
-                    const line = part
-                        .split("\n")
-                        .find(l => l.startsWith("data:"));
-
-                    if (!line) continue;
-
-                    const data = line.replace("data: ", "").trim();
-                    if (!data) continue;
-
-                    if (data === "[DONE]") continue;
-
-                    const json = JSON.parse(data);
-
-                    if (json.role && json.role !== this.messages[currentMessageIndex].role) {
-                        this.messages = [...this.messages, {
-                            role: json.role,
-                            content: json.content,
-                            tool_calls: json.tool_calls,
-                            tool_call_id: json.tool_call_id
-                        }];
-                        currentMessageIndex = this.messages.length - 1;
-                    } else {
-                        this.messages[currentMessageIndex] = {
-                            ...this.messages[currentMessageIndex],
-                            content: (this.messages[currentMessageIndex].content || "") + json.content,
-                            tool_calls: [].concat(this.messages[currentMessageIndex].tool_calls || []).concat(json.tool_calls || [])
-                        };
-                    }
-                }
-                this.requestUpdate();
-                this.scrollToBottom();
-            }
+            //
+            // // Add a placeholder message for the assistant's response
+            // const assistantMessageIndex = this.messages.length;
+            // this.messages = [...this.messages, {role: 'assistant', content: ''}];
+            // this.requestUpdate();
+            // this.scrollToBottom();
+            //
+            // const reader = response.body.getReader();
+            // const decoder = new TextDecoder();
+            // let buffer = "";
+            // let currentMessageIndex = assistantMessageIndex;
+            // while (true) {
+            //     const {done, value} = await reader.read();
+            //     if (done) break;
+            //
+            //     buffer += decoder.decode(value, {stream: true});
+            //
+            //     let parts = buffer.split("\n\n");
+            //     buffer = parts.pop(); // letzter evtl. unvollständiger Block bleibt drin
+            //
+            //     for (const part of parts) {
+            //         const line = part
+            //             .split("\n")
+            //             .find(l => l.startsWith("data:"));
+            //
+            //         if (!line) continue;
+            //
+            //         const data = line.replace("data: ", "").trim();
+            //         if (!data) continue;
+            //
+            //         if (data === "[DONE]") continue;
+            //
+            //         const json = JSON.parse(data);
+            //
+            //         // if (json.role && json.role !== this.messages[currentMessageIndex].role) {
+            //         //     // this.messages = [...this.messages, {
+            //         //     //     role: json.role,
+            //         //     //     content: json.content,
+            //         //     //     tool_calls: json.tool_calls,
+            //         //     //     tool_call_id: json.tool_call_id
+            //         //     // }];
+            //         //     // currentMessageIndex = this.messages.length - 1;
+            //         // } else {
+            //         //     // this.messages[currentMessageIndex] = {
+            //         //     //     ...this.messages[currentMessageIndex],
+            //         //     //     content: (this.messages[currentMessageIndex].content || "") + json.content,
+            //         //     //     tool_calls: [].concat(this.messages[currentMessageIndex].tool_calls || []).concat(json.tool_calls || [])
+            //         //     // };
+            //         // }
+            //     }
+            //     // this.requestUpdate();
+            //     this.scrollToBottom();
+            // }
         } catch (error) {
             console.error('Error:', error);
-            this.messages = [...this.messages, {sender: 'Error', text: error.message}];
-            this.requestUpdate();
-            this.scrollToBottom();
+            // this.messages = [...this.messages, {sender: 'Error', text: error.message}];
+            // this.requestUpdate();
+            // this.scrollToBottom();
         } finally {
             this.isLoading = false;
         }

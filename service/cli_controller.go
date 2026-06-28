@@ -56,7 +56,6 @@ func (cc *CLIController) StartChat() {
 			}()
 			cc.listenForMessages(messageChan)
 		}
-		fmt.Printf("TotalTokens: %d\n", cc.chatContext.TotalTokens)
 	}
 }
 

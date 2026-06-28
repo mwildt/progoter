@@ -16,33 +16,13 @@ type RESTController struct {
 	chatService    *ChatService
 	contextManager *ContextManager
 	mu             sync.Mutex
-	isProcessing   bool
 }
 
 func NewRESTController(apiKey string) *RESTController {
 	return &RESTController{
 		chatService:    NewChatService(apiKey),
 		contextManager: NewContextManager(),
-		isProcessing:   false,
 	}
-}
-
-// StartProcessing setzt den Processing-Status auf true.
-func (rc *RESTController) StartProcessing() bool {
-	rc.mu.Lock()
-	defer rc.mu.Unlock()
-	if rc.isProcessing {
-		return false
-	}
-	rc.isProcessing = true
-	return true
-}
-
-// StopProcessing setzt den Processing-Status auf false.
-func (rc *RESTController) StopProcessing() {
-	rc.mu.Lock()
-	defer rc.mu.Unlock()
-	rc.isProcessing = false
 }
 
 // ClearContextHandler setzt den Chat-Kontext für die gegebene ID zurück.
@@ -51,12 +31,6 @@ func (rc *RESTController) ClearContextHandler(w http.ResponseWriter, r *http.Req
 	if id == "" {
 		id = "default"
 	}
-
-	if !rc.StartProcessing() {
-		http.Error(w, "Eine Aktion läuft bereits", http.StatusConflict)
-		return
-	}
-	defer rc.StopProcessing()
 
 	chatContext, exists := rc.contextManager.GetContext(id)
 	if !exists {
@@ -82,12 +56,6 @@ func (rc *RESTController) DumpContextHandler(w http.ResponseWriter, r *http.Requ
 		id = "default"
 	}
 
-	if !rc.StartProcessing() {
-		http.Error(w, "Eine Aktion läuft bereits", http.StatusConflict)
-		return
-	}
-	defer rc.StopProcessing()
-
 	chatContext, exists := rc.contextManager.GetContext(id)
 	if !exists {
 		http.Error(w, "Chat-Kontext nicht gefunden", http.StatusNotFound)
@@ -112,12 +80,6 @@ func (rc *RESTController) CompactChatHandler(w http.ResponseWriter, r *http.Requ
 		id = "default"
 	}
 
-	if !rc.StartProcessing() {
-		http.Error(w, "Eine Aktion läuft bereits", http.StatusConflict)
-		return
-	}
-	defer rc.StopProcessing()
-
 	chatContext, exists := rc.contextManager.GetContext(id)
 	if !exists {
 		http.Error(w, "Chat-Kontext nicht gefunden", http.StatusNotFound)
@@ -139,8 +101,8 @@ type PostMessageRequestDTO struct {
 	Message string `json:"message"`
 }
 
-// MessageHandler sendet eine Nachricht und liefert einen SSE-Stream mit Events.
-func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request) {
+// PostMessageHandler sendet eine Nachricht und liefert einen SSE-Stream mit Events.
+func (rc *RESTController) PostMessageHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
 		id = "default"
@@ -156,12 +118,6 @@ func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request)
 		slog.Info("request abgebrochen", "error", r.Context().Err())
 	}()
 
-	if !rc.StartProcessing() {
-		http.Error(w, "Eine Aktion läuft bereits", http.StatusConflict)
-		return
-	}
-	defer rc.StopProcessing()
-
 	var messageRequest PostMessageRequestDTO
 	err := json.NewDecoder(r.Body).Decode(&messageRequest)
 	if err != nil {
@@ -175,52 +131,63 @@ func (rc *RESTController) MessageHandler(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Connection", "keep-alive")
 
 	// Füge die Nachricht zum Chat-Kontext hinzu
-	chatContext.AddMessage(&request.Message{
+
+	message := &request.Message{
 		Role:    "user",
 		Content: messageRequest.Message,
-	})
-
-	messageChan := make(chan *request.Message)
-
-	// Erstelle einen Kanal für die SSE-Ereignisse
-	sseChan := make(chan string)
-	go func() {
-		defer close(sseChan)
-		for msg := range messageChan {
-			if len(msg.Content) == 0 {
-				continue
-			}
-			data, _ := json.Marshal(msg)
-			sseChan <- fmt.Sprintf("data: %s\n\n", string(data))
-		}
-	}()
-
-	// Verarbeite die Nachricht
-	var errError error
-	go func() {
-		defer func() {
-			if errError != nil {
-				slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", errError)
-			}
-		}()
-		_, errError = rc.chatService.CompleteContext(r.Context(), chatContext, messageChan)
-	}()
-
-	// Sende SSE-Ereignisse an den Client
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "Streaming nicht unterstützt", http.StatusInternalServerError)
-		return
 	}
+	chatContext.AddMessage(message)
+	chatContext.Broadcast(message)
 
-	for event := range sseChan {
-		fmt.Fprintf(w, event)
-		flusher.Flush()
-	}
-
-	if errError != nil {
+	if chatContext.Complete(rc.chatService); err != nil {
 		http.Error(w, "Fehler beim Verarbeiten der Chat-Vervollständigung", http.StatusInternalServerError)
 	}
+
+	//messageChan := make(chan *request.Message)
+	//
+	//// Erstelle einen Kanal für die SSE-Ereignisse
+	//sseChan := make(chan string)
+	//
+	//go func() {
+	//	defer close(sseChan)
+	//	defer chatContext.CloseSubscriptions()
+	//	for msg := range messageChan {
+	//		if len(msg.Content) == 0 {
+	//			continue
+	//		}
+	//		data, _ := json.Marshal(msg)
+	//		sseChan <- fmt.Sprintf("data: %s\n\n", string(data))
+	//		chatContext.Broadcast(msg)
+	//	}
+	//
+	//}()
+	//
+	//// Verarbeite die Nachricht
+	//var errError error
+	//go func() {
+	//	defer func() {
+	//		if errError != nil {
+	//			slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", errError)
+	//		}
+	//	}()
+	//	_, errError = rc.chatService.CompleteContext(context.Background(), chatContext, messageChan)
+	//}()
+	//
+	//// Sende SSE-Ereignisse an den Client
+	//flusher, ok := w.(http.Flusher)
+	//if !ok {
+	//	http.Error(w, "Streaming nicht unterstützt", http.StatusInternalServerError)
+	//	return
+	//}
+	//
+	//for event := range sseChan {
+	//	fmt.Fprintf(w, event)
+	//	flusher.Flush()
+	//}
+
+	//if errError != nil {
+	//	http.Error(w, "Fehler beim Verarbeiten der Chat-Vervollständigung", http.StatusInternalServerError)
+	//}
 }
 
 // compactChat komprimiert den gegebenen Chat-Kontext.
@@ -330,7 +297,7 @@ func (rc *RESTController) ClearContext(w http.ResponseWriter, r *http.Request) e
 	return nil
 }
 
-// GetContextHandler gibt den Chat-Kontext für die gegebene ID als JSON zurück.
+// GetContextHandler gibt den Chat-Kontext für die gegebene ID als Stream zurück.
 func (rc *RESTController) GetContextHandler(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
@@ -338,20 +305,34 @@ func (rc *RESTController) GetContextHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	chatContext, exists := rc.contextManager.GetContext(id)
+
 	if !exists {
-		http.Error(w, "Chat-Kontext nicht gefunden", http.StatusNotFound)
+		chatContext = rc.contextManager.CreateContext(id)
+	}
+
+	// Setze den Content-Type-Header für SSE
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming nicht unterstützt", http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	encoder := json.NewEncoder(w)
-	encoder.SetIndent("", "  ")
-	err := encoder.Encode(chatContext)
-	if err != nil {
-		slog.Error("Fehler beim Kodieren des Chat-Kontexts", "error", err)
-		http.Error(w, "Fehler beim Kodieren des Chat-Kontexts", http.StatusInternalServerError)
-		return
+	// Abonniere den Chat-Kontext
+	sub := chatContext.Stream()
+	for msg := range sub {
+		data, err := json.Marshal(msg)
+		if err != nil {
+			slog.Error("Fehler beim Kodieren der Nachricht", "error", err)
+			continue
+		}
+		fmt.Fprintf(w, "data: %s\n\n", string(data))
+		flusher.Flush()
 	}
+
 }
 
 // SetupRoutes richtet die REST-Routen ein.
@@ -359,6 +340,6 @@ func (rc *RESTController) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /chat/{id}/clear", rc.ClearContextHandler)
 	mux.HandleFunc("GET /chat/{id}/dump", rc.DumpContextHandler)
 	mux.HandleFunc("POST /chat/{id}/compact", rc.CompactChatHandler)
-	mux.HandleFunc("POST /chat/{id}/message", rc.MessageHandler)
+	mux.HandleFunc("POST /chat/{id}/message", rc.PostMessageHandler)
 	mux.HandleFunc("GET /chat/{id}/context", rc.GetContextHandler)
 }

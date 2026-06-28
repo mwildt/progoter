@@ -1,6 +1,7 @@
 package service
 
 import (
+	"log/slog"
 	"sync"
 )
 
@@ -21,7 +22,7 @@ func NewContextManager() *ContextManager {
 func (cm *ContextManager) CreateContext(id string) *ChatContext {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-
+	slog.Default().Info("CreateContext", "id", id)
 	context := NewChatContext()
 	cm.contexts[id] = context
 	return context
@@ -39,7 +40,7 @@ func (cm *ContextManager) GetContext(id string) (*ChatContext, bool) {
 func (cm *ContextManager) SetContext(id string, cc *ChatContext) {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	cm.contexts[id] = NewChatContext()
+	cm.contexts[id] = cc
 }
 
 // DeleteContext löscht den Chat-Kontext für die gegebene ID.

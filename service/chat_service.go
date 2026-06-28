@@ -150,6 +150,53 @@ func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*requ
 }
 
 // CompleteContext vervollständigt den ChatContext mit einer Antwort vom API.
+func (cs *ChatService) Complete(ctx context.Context, chatContext *ChatContext) (*ChatContext, error) {
+	responseChan := make(chan *request.Message)
+
+	go func() {
+		for msg := range responseChan {
+			chatContext.addMessage(msg)
+			chatContext.Broadcast(msg)
+		}
+	}()
+
+	for {
+		// wurde der context ggf in der zwischenzet abgebrochen?
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		responseMessage, err := cs.sendCompleteRequest(ctx, chatContext.GetMessages(), responseChan)
+		if err != nil {
+			return nil, err
+		}
+
+		// Beende die Schleife, wenn keine Tool-Calls mehr anstehen
+		if len(responseMessage.ToolCalls) == 0 {
+			break
+		} else {
+			// tool calls ausführen und ggf weiter machen
+			for _, toolCall := range responseMessage.ToolCalls {
+				callContent, err := cs.callTool(ctx, chatContext, toolCall)
+				if err != nil {
+					slog.Default().Error("Felgler beim aufruf eines tools", "tool", toolCall.Type, "error", err)
+				}
+				toolMessage := &request.Message{
+					Role:       "tool",
+					ToolCallId: toolCall.Id,
+					Content:    string(callContent),
+				}
+				chatContext.AddMessage(toolMessage)
+				chatContext.Broadcast(toolMessage)
+			}
+		}
+	}
+
+	return chatContext, nil
+
+}
 func (cs *ChatService) CompleteContext(ctx context.Context, chatContext *ChatContext, messageChan chan *request.Message) (*ChatContext, error) {
 	defer func() {
 		if nil != messageChan {
@@ -197,7 +244,6 @@ func (cs *ChatService) CompleteContext(ctx context.Context, chatContext *ChatCon
 					ToolCallId: toolCall.Id,
 					Content:    string(callContent),
 				})
-
 			}
 		}
 	}

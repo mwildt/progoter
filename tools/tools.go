@@ -11,6 +11,7 @@ func GetTools() []request.Tool {
 		CreateDirTool{}.GetTool(),
 		ReplaceFileLinesTool{}.GetTool(),
 		EditFileTool{}.GetTool(),
+		//ReplaceFileContentTool{}.GetTool(),
 		GitDoTool{}.GetTool(),
 		GitDiffTool{}.GetTool(),
 		StopProcessTool{}.GetTool(),
