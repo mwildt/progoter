@@ -2,27 +2,29 @@ package tools
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/mwildt/progoter/request"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
-
-	"github.com/mwildt/progoter/request"
+	"strings"
 )
 
-// ListFilesArgs enthält die Argumente für das list_files Tool
+type ListFilesTool struct {
+	excludeDirs []string
+}
+
 type ListFilesArgs struct {
 	Pattern string `json:"pattern,omitempty"`
 }
-
-// ListFilesTool implementiert das ToolHandler-Interface für list_files
-type ListFilesTool struct{}
 
 func (t ListFilesTool) GetTool() request.Tool {
 	return request.Tool{
 		Type: "function",
 		Function: request.ToolFunction{
 			Name:        "list_files",
-			Description: "Gibt eine Liste mit allen Dateien im Projekt zurück, die einem Glob-Ausdruck entsprechen",
+			Description: "Gibt eine Liste mit allen Dateien im Projekt zurück, die einem Glob-Ausdruck entsprechen. Denke an WildCards (*) beim aufruf. ",
 			Parameters: request.FunctionParams{
 				Type: "object",
 				Properties: map[string]request.ArgumentProperty{
@@ -38,6 +40,7 @@ func (t ListFilesTool) GetTool() request.Tool {
 	}
 }
 
+// ListFiles lists all files matching the given glob pattern, excluding specified directories.
 func (t ListFilesTool) Execute(basePath string, args string) ([]byte, error) {
 	var listFilesArgs ListFilesArgs
 	err := json.Unmarshal([]byte(args), &listFilesArgs)
@@ -50,34 +53,62 @@ func (t ListFilesTool) Execute(basePath string, args string) ([]byte, error) {
 		return nil, err
 	}
 
-	var files []string
+	var matches []string
+
+	pattern := listFilesArgs.Pattern
+	// If no pattern is provided, use "*" to match all files
+	if pattern == "" {
+		pattern = "*"
+	}
+
+	// Walk through the directory tree
 	err = filepath.Walk(finalPath, func(path string, info os.FileInfo, err error) error {
-		relPath, err := filepath.Rel(finalPath, path)
 		if err != nil {
 			return err
 		}
 
-		// Verzeichnisse mit einem Schrägstrich markieren
-		if info.IsDir() {
-			relPath += "/"
+		relPath, _ := filepath.Rel(finalPath, path)
+
+		if strings.HasPrefix(relPath, ".git/") {
+			return filepath.SkipDir
 		}
 
-		// Wenn ein Glob-Muster angegeben wurde, prüfe, ob die Datei oder das Verzeichnis dazu passt
-		if listFilesArgs.Pattern != "" {
-			matched, err := filepath.Match(listFilesArgs.Pattern, relPath)
-			if err != nil {
-				return err
-			}
-			if matched {
-				files = append(files, relPath)
-			}
-		} else {
-			files = append(files, relPath)
+		if strings.HasPrefix(relPath, ".idea/") {
+			return filepath.SkipDir
 		}
+
+		slog.Default().Info("check file info", "path", path, "relPath", relPath, "pattern", pattern)
+
+		// Skip directories in excludeDirs
+		for _, dir := range t.excludeDirs {
+			if strings.HasPrefix(relPath, dir) {
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+		}
+
+		// Check if the path matches the pattern
+		matched, err := filepath.Match(pattern, relPath)
+		if err != nil {
+			return err
+		}
+
+		if matched {
+			if info.IsDir() {
+				matches = append(matches, relPath+"/")
+			} else {
+				matches = append(matches, relPath)
+			}
+		}
+
 		return nil
 	})
+
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error walking the path: %v", err)
 	}
-	return json.Marshal(files)
+
+	return json.Marshal(matches)
 }
