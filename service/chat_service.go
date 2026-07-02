@@ -168,6 +168,14 @@ func (cs *ChatService) Complete(ctx context.Context, chatContext *ChatContext) (
 		default:
 		}
 
+		// Prüfe, ob der ChatContext gestoppt wurde
+		chatContext.mu.Lock()
+		state := chatContext.State
+		chatContext.mu.Unlock()
+		if state == "stopped" {
+			return chatContext, nil
+		}
+
 		responseMessage, err := cs.sendCompleteRequest(ctx, chatContext.GetMessages(), responseChan)
 		if err != nil {
 			return nil, err
@@ -209,6 +217,14 @@ func (cs *ChatService) CompleteContext(ctx context.Context, chatContext *ChatCon
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
+		}
+
+		// Prüfe, ob der ChatContext gestoppt wurde
+		chatContext.mu.Lock()
+		state := chatContext.State
+		chatContext.mu.Unlock()
+		if state == "stopped" {
+			return chatContext, nil
 		}
 
 		// // Prüfe, ob der Kontext zu mehr als 75% gefüllt ist

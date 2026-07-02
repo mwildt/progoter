@@ -389,6 +389,26 @@ class ChatApp extends LitElement {
         this.setupStream();
     }
 
+    async cancelChat() {
+        this.isLoading = true;
+        try {
+            const response = await fetch('http://localhost:8080/chat/default/cancel', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (!response.ok) {
+                throw new Error('Failed to cancel chat');
+            }
+            await this.loadChatContext();
+        } catch (error) {
+            console.error('Error canceling chat:', error);
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
     async compactChat() {
         this.isLoading = true;
         try {
@@ -593,6 +613,7 @@ class ChatApp extends LitElement {
             <div class="chat-container mode-${initial ? 'init' : 'chat'}">
                 ${initial ? undefined : html`
                     <div class="header">
+                        <button @click=${this.cancelChat}>Cancel</button>
                         <button @click=${this.compactChat}>Compact</button>
                         <button @click=${this.clearChat}>Clear</button>
                     </div>

@@ -235,6 +235,7 @@ func (rc *RESTController) ClearContext(w http.ResponseWriter, r *http.Request) e
 		Messages: []*request.Message{
 			{Role: "system", Content: systemPrompt},
 		},
+		State: "idle",
 	}
 
 	rc.contextManager.SetContext(id, newContext)
@@ -279,6 +280,28 @@ func (rc *RESTController) GetContextHandler(w http.ResponseWriter, r *http.Reque
 
 }
 
+// CancelContextHandler stoppt den aktuellen Chat-Kontext für die gegebene ID.
+func (rc *RESTController) CancelContextHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		id = "default"
+	}
+
+	chatContext, exists := rc.contextManager.GetContext(id)
+	if !exists {
+		http.Error(w, "Chat-Kontext nicht gefunden", http.StatusNotFound)
+		return
+	}
+
+	chatContext.mu.Lock()
+	chatContext.State = "stopped"
+	chatContext.mu.Unlock()
+	chatContext.BroadcastState()
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Chat-Kontext wurde erfolgreich gestoppt.")
+}
+
 // SetupRoutes richtet die REST-Routen ein.
 func (rc *RESTController) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /chat/{id}/clear", rc.ClearContextHandler)
@@ -286,4 +309,5 @@ func (rc *RESTController) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /chat/{id}/compact", rc.CompactChatHandler)
 	mux.HandleFunc("POST /chat/{id}/message", rc.PostMessageHandler)
 	mux.HandleFunc("GET /chat/{id}/context", rc.GetContextHandler)
+	mux.HandleFunc("POST /chat/{id}/cancel", rc.CancelContextHandler)
 }

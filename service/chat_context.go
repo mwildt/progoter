@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"sync"
@@ -14,6 +15,7 @@ type ChatContext struct {
 	BasePath    string
 	Messages    []*request.Message `json:"messages"`
 	IsStreaming bool               `json:"is_streaming"`
+	State       string             `json:"state"`
 	subscribers map[chan *request.Message]bool
 	mu          sync.Mutex
 }
@@ -43,6 +45,7 @@ func NewChatContext() *ChatContext {
 			{Role: "system", Content: systemPrompt},
 		},
 		IsStreaming: false,
+		State:       "idle",
 		subscribers: make(map[chan *request.Message]bool),
 	}
 }
@@ -57,7 +60,13 @@ func (cc *ChatContext) AddMessage(message *request.Message) {
 
 func (cc *ChatContext) Complete(service *ChatService) error {
 	slog.Default().Info("ChatContext::Complete")
+	cc.mu.Lock()
+	cc.State = "running"
+	cc.mu.Unlock()
 	_, err := service.Complete(context.Background(), cc)
+	cc.mu.Lock()
+	cc.State = "idle"
+	cc.mu.Unlock()
 	return err
 }
 
@@ -94,6 +103,7 @@ func (cc *ChatContext) Stream() chan *request.Message {
 		sub <- msg
 	}
 	cc.subscribers[sub] = true
+	cc.BroadcastState()
 	return sub
 }
 
@@ -125,6 +135,18 @@ func (cc *ChatContext) Broadcast(msg *request.Message) {
 	}
 }
 
+func (cc *ChatContext) BroadcastState() {
+	slog.Default().Info("BroadcastState")
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+	for sub := range cc.subscribers {
+		sub <- &request.Message{
+			Role:    "system",
+			Content: fmt.Sprintf(`{"state": "%s"}`, cc.State),
+		}
+	}
+}
+
 // GetMessages returns all messages in the chat context.
 func (cc *ChatContext) GetMessages() []*request.Message {
 	return cc.Messages
@@ -144,6 +166,7 @@ func (cc *ChatContext) ClearMessages() error {
 	defer cc.mu.Unlock()
 
 	cc.IsStreaming = false
+	cc.State = "idle"
 	for sub := range cc.subscribers {
 		close(sub)
 		delete(cc.subscribers, sub)
