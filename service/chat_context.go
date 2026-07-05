@@ -112,8 +112,8 @@ func NewChatContext() *ChatContext {
 // AddMessage adds a message to the chat context.
 func (cc *ChatContext) AddMessage(message *request.Message) {
 	slog.Default().Info("ChatContext::AddMessage", "role", message.Role, "content", message.Content)
-	cc.mu.Lock()
-	defer cc.mu.Unlock()
+	//cc.mu.Lock()
+	//defer cc.mu.Unlock()
 	cc.Messages = append(cc.Messages, message)
 }
 

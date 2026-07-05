@@ -180,6 +180,7 @@ func (cs *ChatService) CompleteWithHandler(ctx context.Context, chatContext *Cha
 		default:
 		}
 
+		slog.Default().Info(">> send compoletion reuqets")
 		responseMessage, err := cs.sendCompleteRequest(ctx, chatContext.GetMessages(), handler)
 		if err != nil {
 			return nil, err
@@ -205,6 +206,7 @@ func (cs *ChatService) CompleteWithHandler(ctx context.Context, chatContext *Cha
 			}
 		}
 	}
+	slog.Default().Info("CompleteWithHandler <<")
 
 	return chatContext, nil
 }
