@@ -29,7 +29,7 @@ func NewChatService(apiKey string) *ChatService {
 	}
 }
 
-func readResponse(body io.Reader, messageChan chan *request.Message) (result *request.Message, err error) {
+func readResponse(body io.Reader, handler MessageHandler) (result *request.Message, err error) {
 	reader := bufio.NewReader(body)
 	result = &request.Message{}
 	var builder strings.Builder
@@ -77,21 +77,23 @@ func readResponse(body io.Reader, messageChan chan *request.Message) (result *re
 			if len(choice.Delta.ToolCalls) > 0 {
 				result.ToolCalls = append(result.ToolCalls, choice.Delta.ToolCalls...)
 			}
-			if nil != messageChan {
-				messageChan <- &request.Message{
+			if nil != handler {
+				handler(&request.Message{
 					Role:      choice.Delta.Role,
 					ToolCalls: choice.Delta.ToolCalls,
 					Content:   contentPart,
-				}
+				})
 			}
 		}
 	}
+
+	slog.Default().Info("EOD")
 
 	result.Content = builder.String()
 	return result, nil
 }
 
-func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*request.Message, messageChan chan *request.Message) (*request.Message, error) {
+func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*request.Message, handler MessageHandler) (*request.Message, error) {
 
 	projected := make([]*request.ChatCompletionMessage, len(messages))
 
@@ -124,7 +126,8 @@ func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*requ
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", cs.apiKey))
 	req.Header.Set("Accept", "text/event-stream")
 
-	slog.Default().Info("send completion request", "url", req.URL.String(), "jsonData", jsonData)
+	slog.Default().With("logger", "ChatService").
+		Info("send completion request", "url", req.URL.String())
 
 	resp, err := cs.client.Do(req)
 	if err != nil {
@@ -146,37 +149,29 @@ func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*requ
 		return nil, errors.New("HTTP-Fehler")
 	}
 
-	return readResponse(resp.Body, messageChan)
+	return readResponse(resp.Body, handler)
 }
 
-// CompleteContext vervollständigt den ChatContext mit einer Antwort vom API.
-func (cs *ChatService) Complete(ctx context.Context, chatContext *ChatContext) (*ChatContext, error) {
-	responseChan := make(chan *request.Message)
+type MessageHandler func(*request.Message)
 
-	go func() {
-		for msg := range responseChan {
-			chatContext.addMessage(msg)
-			chatContext.Broadcast(msg)
-		}
-	}()
+func (cs *ChatService) Complete(ctx context.Context, chatContext *ChatContext) (*ChatContext, error) {
+	return cs.CompleteWithHandler(ctx, chatContext, func(msg *request.Message) {
+		chatContext.addMessage(msg)
+		chatContext.Broadcast(msg)
+	})
+}
+
+func (cs *ChatService) CompleteWithHandler(ctx context.Context, chatContext *ChatContext, handler MessageHandler) (*ChatContext, error) {
 
 	for {
-		// wurde der context ggf in der zwischenzet abgebrochen?
+		// wurde der context ggf in der zwischenzeit abgebrochen?
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		default:
 		}
 
-		// Prüfe, ob der ChatContext gestoppt wurde
-		chatContext.mu.Lock()
-		state := chatContext.State
-		chatContext.mu.Unlock()
-		if state == "stopped" {
-			return chatContext, nil
-		}
-
-		responseMessage, err := cs.sendCompleteRequest(ctx, chatContext.GetMessages(), responseChan)
+		responseMessage, err := cs.sendCompleteRequest(ctx, chatContext.GetMessages(), handler)
 		if err != nil {
 			return nil, err
 		}
@@ -196,70 +191,8 @@ func (cs *ChatService) Complete(ctx context.Context, chatContext *ChatContext) (
 					ToolCallId: toolCall.Id,
 					Content:    string(callContent),
 				}
-				chatContext.AddMessage(toolMessage)
+				chatContext.addMessage(toolMessage)
 				chatContext.Broadcast(toolMessage)
-			}
-		}
-	}
-
-	return chatContext, nil
-
-}
-func (cs *ChatService) CompleteContext(ctx context.Context, chatContext *ChatContext, messageChan chan *request.Message) (*ChatContext, error) {
-	defer func() {
-		if nil != messageChan {
-			close(messageChan)
-		}
-	}()
-	for {
-		// wurde der context ggf in der zwischenzet abgebrochen?
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		default:
-		}
-
-		// Prüfe, ob der ChatContext gestoppt wurde
-		chatContext.mu.Lock()
-		state := chatContext.State
-		chatContext.mu.Unlock()
-		if state == "stopped" {
-			return chatContext, nil
-		}
-
-		// // Prüfe, ob der Kontext zu mehr als 75% gefüllt ist
-		/**
-		if chatContext.TotalTokens > 0 && chatContext.TotalTokens > (262144*0.75) {
-			slog.Default().Info("Kontext ist zu mehr als 75% gefüllt. Starte Compaction...")
-			err := cs.compactContext(chatContext)
-			if err != nil {
-				slog.Error("Fehler bei der Compaction", "error", err)
-				return nil, err
-			}
-		}
-		*/
-
-		responseMessage, err := cs.sendCompleteRequest(ctx, chatContext.GetMessages(), messageChan)
-		if err != nil {
-			return nil, err
-		}
-		chatContext.AddMessage(responseMessage)
-
-		// Beende die Schleife, wenn keine Tool-Calls mehr anstehen
-		if len(responseMessage.ToolCalls) == 0 {
-			break
-		} else {
-			// tool calls ausführen und ggf weiter machen
-			for _, toolCall := range responseMessage.ToolCalls {
-				callContent, err := cs.callTool(ctx, chatContext, toolCall)
-				if err != nil {
-					slog.Default().Error("Felgler beim aufruf eines tools", "tool", toolCall.Type, "error", err)
-				}
-				chatContext.AddMessage(&request.Message{
-					Role:       "tool",
-					ToolCallId: toolCall.Id,
-					Content:    string(callContent),
-				})
 			}
 		}
 	}

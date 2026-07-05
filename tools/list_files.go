@@ -77,8 +77,6 @@ func (t ListFilesTool) Execute(basePath string, args string) ([]byte, error) {
 			return filepath.SkipDir
 		}
 
-		slog.Default().Info("check file info", "path", path, "relPath", relPath, "pattern", pattern)
-
 		// Skip directories in excludeDirs
 		for _, dir := range t.excludeDirs {
 			if strings.HasPrefix(relPath, dir) {
@@ -109,6 +107,6 @@ func (t ListFilesTool) Execute(basePath string, args string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error walking the path: %v", err)
 	}
-
+	slog.Default().Info("list file respons", "matches", matches)
 	return json.Marshal(matches)
 }

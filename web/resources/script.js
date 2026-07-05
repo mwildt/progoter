@@ -390,7 +390,6 @@ class ChatApp extends LitElement {
     }
 
     async cancelChat() {
-        this.isLoading = true;
         try {
             const response = await fetch('http://localhost:8080/chat/default/cancel', {
                 method: 'POST',
@@ -404,8 +403,6 @@ class ChatApp extends LitElement {
             await this.loadChatContext();
         } catch (error) {
             console.error('Error canceling chat:', error);
-        } finally {
-            this.isLoading = false;
         }
     }
 
@@ -430,7 +427,7 @@ class ChatApp extends LitElement {
     }
 
     async clearChat() {
-        this.isLoading = true;
+
         try {
             const response = await fetch('http://localhost:8080/chat/default/clear', {
                 method: 'POST',
@@ -441,7 +438,7 @@ class ChatApp extends LitElement {
             if (!response.ok) {
                 throw new Error('Failed to clear chat');
             }
-            await this.loadChatContext();
+            this.messages = []
         } catch (error) {
             console.error('Error clearing chat:', error);
         } finally {
@@ -451,14 +448,14 @@ class ChatApp extends LitElement {
 
     static properties = {
         messages: {type: Array},
-        isLoading: {},
+        processing: {},
         eventSource: {type: Object},
     };
 
     constructor() {
         super();
         this.messages = [];
-        this.isLoading = false;
+        this.processing = false;
         this.needScoll = false;
         this.eventSource = null;
     }
@@ -495,6 +492,19 @@ class ChatApp extends LitElement {
         this.eventSource.onfinish =  () => console.warn("finish")
 
         this.eventSource.onmessage = (event) => {
+            console.warn("UNKNOWN EVENT", event);
+        }
+
+        this.eventSource.addEventListener("state-change", (event) => {
+            if (event.data === "processing") {
+                this.processing = true
+            } else if (event.data === "idle") {
+                this.processing = false
+            }
+        });
+
+        this.eventSource.addEventListener("chat-message", (event) => {
+            console.info(event.data)
             const message = JSON.parse(event.data);
 
             let lastMessage = this.messages.length - 1;
@@ -517,7 +527,8 @@ class ChatApp extends LitElement {
                 this.requestUpdate();
                 this.scrollToBottom();
             })
-        };
+        });
+
         this.eventSource.onerror = (error) => {
             console.error('EventSource failed:', error);
             this.eventSource.close();
@@ -613,9 +624,9 @@ class ChatApp extends LitElement {
             <div class="chat-container mode-${initial ? 'init' : 'chat'}">
                 ${initial ? undefined : html`
                     <div class="header">
-                        <button @click=${this.cancelChat}>Cancel</button>
-                        <button @click=${this.compactChat}>Compact</button>
-                        <button @click=${this.clearChat}>Clear</button>
+                        <button ?disabled=${!this.processing} @click=${this.cancelChat}>Cancel</button>
+                        <button disabled=${this.processing} @click=${this.compactChat}>Compact</button>
+                        <button disabled=${this.processing} @click=${this.clearChat}>Clear</button>
                     </div>
                     <div class="messages">
                         ${this.messages.map(msg => html`
@@ -623,8 +634,9 @@ class ChatApp extends LitElement {
                     </div>
                 `}
                 <div class="input-area">
+                    ${this.processing ? html`<pre>processing</pre>`:null}
                     ${initial ? html`<h3>Was geht up?</h3>` : undefined}
-                    <chat-input .processing=${this.isLoading}
+                    <chat-input .processing=${this.processing}
                                 @send-message=${this.sendMessage}
                     ></chat-input>
                 </div>
