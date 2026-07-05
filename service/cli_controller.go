@@ -49,9 +49,9 @@ func (cc *CLIController) StartChat() {
 			messageChan := make(chan *request.Message)
 			go func() {
 				var err error
-				cc.chatContext, err = cc.chatService.CompleteWithHandler(context.Background(), cc.chatContext, func(msg *request.Message) {
+				cc.chatContext, err = cc.chatService.CompleteWithHandler(context.Background(), cc.chatContext, MessageHandlerFunc(func(msg *request.Message) {
 					messageChan <- msg
-				})
+				}))
 				if err != nil {
 					slog.Error("Fehler beim Verarbeiten der Chat-Vervollständigung", "error", err)
 				}
@@ -95,9 +95,9 @@ Fasse den bisherigen Chatverlauf zusammen. Ziel ist es, **alle fachlichen Inform
 	var messageChan chan *request.Message = nil
 
 	// Request completion from the chat service
-	compactedContext, err := cc.chatService.CompleteWithHandler(context.Background(), cc.chatContext, func(msg *request.Message) {
+	compactedContext, err := cc.chatService.CompleteWithHandler(context.Background(), cc.chatContext, MessageHandlerFunc(func(msg *request.Message) {
 		messageChan <- msg
-	})
+	}))
 	if err != nil {
 		return fmt.Errorf("Fehler beim Komprimieren des Chatverlaufs: %v", err)
 	}

@@ -22,7 +22,7 @@ func (m *Message) HasRole(role string) bool {
 	return m.Role == role
 }
 
-func (m *Message) Append(message *Message) {
+func (m *Message) Join(message *Message) {
 	m.Content += message.Content
 	m.ToolCalls = append(m.ToolCalls, message.ToolCalls...)
 	m.Usage = message.Usage

@@ -625,8 +625,8 @@ class ChatApp extends LitElement {
                 ${initial ? undefined : html`
                     <div class="header">
                         <button ?disabled=${!this.processing} @click=${this.cancelChat}>Cancel</button>
-                        <button disabled=${this.processing} @click=${this.compactChat}>Compact</button>
-                        <button disabled=${this.processing} @click=${this.clearChat}>Clear</button>
+                        <button ?disabled=${this.processing} @click=${this.compactChat}>Compact</button>
+                        <button ?disabled=${this.processing} @click=${this.clearChat}>Clear</button>
                     </div>
                     <div class="messages">
                         ${this.messages.map(msg => html`

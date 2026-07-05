@@ -81,6 +81,15 @@ func readSystemPrompt() (string, error) {
 	return string(data), nil
 }
 
+// readSystemPrompt liest den System-Prompt aus einer Datei.
+func readCompcatDefaultPrompt() (string, error) {
+	data, err := os.ReadFile("prompts/default-compaction.md")
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 // NewChatContext creates a new ChatContext with an initial system message.
 func NewChatContext() *ChatContext {
 	slog.Default().Info("NewChatContext")
@@ -105,7 +114,7 @@ func (cc *ChatContext) AddMessage(message *request.Message) {
 	slog.Default().Info("ChatContext::AddMessage", "role", message.Role, "content", message.Content)
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
-	cc.addMessage(message)
+	cc.Messages = append(cc.Messages, message)
 }
 
 func (cc *ChatContext) Complete(service *ChatService) error {
@@ -145,7 +154,7 @@ func (cc *ChatContext) addMessage(message *request.Message) {
 	if len(cc.Messages) == 0 {
 		cc.Messages = append(cc.Messages, request.FromMessage(message))
 	} else if last := cc.Messages[len(cc.Messages)-1]; last.HasRole(message.Role) {
-		last.Append(message)
+		last.Join(message)
 	} else {
 		cc.Messages = append(cc.Messages, request.FromMessage(message))
 	}
@@ -224,5 +233,37 @@ func (cc *ChatContext) Dump() error {
 	if err != nil {
 		return fmt.Errorf("Fehler beim Schreiben des JSON: %v", err)
 	}
+	return nil
+}
+
+func (cc *ChatContext) Compcat(service *ChatService) error {
+	prompt, err := readCompcatDefaultPrompt()
+	if err != nil {
+		return err
+	}
+	summarizeMessage := &request.Message{
+		Role:    "user",
+		Content: prompt,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cc.mu.Lock()
+	defer func() {
+		cc.Broadcast(StateIdle)
+		cc.mu.Unlock()
+		cc.cancel = nil
+	}()
+	cc.cancel = cancel
+	cc.Broadcast(StateProcessing)
+	cc.addMessage(summarizeMessage)
+	summary := &request.Message{
+		Role: "user",
+	}
+	_, err = service.CompleteWithHandler(ctx, cc, summary)
+	if err != nil {
+		return fmt.Errorf("Fehler beim Erstellen der Datei: %v", err)
+	}
+	cc.Messages = cc.Messages[:1]
+	cc.addMessage(summary)
 	return nil
 }

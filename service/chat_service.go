@@ -78,7 +78,7 @@ func readResponse(body io.Reader, handler MessageHandler) (result *request.Messa
 				result.ToolCalls = append(result.ToolCalls, choice.Delta.ToolCalls...)
 			}
 			if nil != handler {
-				handler(&request.Message{
+				handler.Join(&request.Message{
 					Role:      choice.Delta.Role,
 					ToolCalls: choice.Delta.ToolCalls,
 					Content:   contentPart,
@@ -152,13 +152,21 @@ func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*requ
 	return readResponse(resp.Body, handler)
 }
 
-type MessageHandler func(*request.Message)
+type MessageHandler interface {
+	Join(*request.Message)
+}
+
+type MessageHandlerFunc func(*request.Message)
+
+func (fn MessageHandlerFunc) Join(message *request.Message) {
+	fn(message)
+}
 
 func (cs *ChatService) Complete(ctx context.Context, chatContext *ChatContext) (*ChatContext, error) {
-	return cs.CompleteWithHandler(ctx, chatContext, func(msg *request.Message) {
+	return cs.CompleteWithHandler(ctx, chatContext, MessageHandlerFunc(func(msg *request.Message) {
 		chatContext.addMessage(msg)
 		chatContext.Broadcast(msg)
-	})
+	}))
 }
 
 func (cs *ChatService) CompleteWithHandler(ctx context.Context, chatContext *ChatContext, handler MessageHandler) (*ChatContext, error) {

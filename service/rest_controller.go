@@ -39,29 +39,19 @@ func (rc *RESTController) DumpContextHandler(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-//// PostCompactChatHandler komprimiert den Chatverlauf für die gegebene ID.
-//func (rc *RESTController) PostCompactChatHandler(w http.ResponseWriter, r *http.Request) {
-//	id := r.PathValue("id")
-//	if id == "" {
-//		id = "default"
-//	}
-//
-//	chatContext, exists := rc.contextManager.GetContext(id)
-//	if !exists {
-//		http.Error(w, "Chat-Kontext nicht gefunden", http.StatusNotFound)
-//		return
-//	}
-//
-//	err := rc.compactChat(chatContext)
-//	if err != nil {
-//		slog.Error("Fehler beim Komprimieren des Chatverlaufs", "error", err)
-//		http.Error(w, "Fehler beim Komprimieren des Chatverlaufs", http.StatusInternalServerError)
-//		return
-//	}
-//
-//	w.WriteHeader(http.StatusOK)
-//	fmt.Fprintf(w, "Chatverlauf wurde erfolgreich komprimiert.")
-//}
+// PostCompactChatHandler komprimiert den Chatverlauf für die gegebene ID.
+func (rc *RESTController) PostCompactChatHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		id = "default"
+	}
+
+	if chatContext, exists := rc.contextManager.GetContext(id); !exists {
+		http.NotFound(w, r)
+	} else {
+		chatContext.Compcat(rc.chatService)
+	}
+}
 
 type PostMessageRequestDTO struct {
 	Message string `json:"message"`
@@ -198,68 +188,8 @@ func (rc *RESTController) CancelContextHandler(w http.ResponseWriter, r *http.Re
 func (rc *RESTController) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /chat/{id}/clear", rc.PostClearContextHandler)
 	mux.HandleFunc("GET /chat/{id}/dump", rc.DumpContextHandler)
-	//mux.HandleFunc("POST /chat/{id}/compact", rc.PostCompactChatHandler)
+	mux.HandleFunc("POST /chat/{id}/compact", rc.PostCompactChatHandler)
 	mux.HandleFunc("POST /chat/{id}/message", rc.PostMessageHandler)
 	mux.HandleFunc("GET /chat/{id}/context", rc.GetContextHandler)
 	mux.HandleFunc("POST /chat/{id}/cancel", rc.CancelContextHandler)
 }
-
-//
-//// compactChat komprimiert den gegebenen Chat-Kontext.
-//func (rc *RESTController) compactChat(chatContext *ChatContext) error {
-//	summarizeMessage := &request.Message{
-//		Role: "user",
-//		Content: `
-//Fasse den bisherigen Chatverlauf zusammen. Ziel ist es, **alle fachlichen Informationen, Entscheidungen, Daten, Code-Snippets und Kontext** zu erhalten. Ignoriere dabei:
-//- Smalltalk
-//- Bestätigungen ("Ja", "Okay", "Verstanden")
-//- Wiederholungen
-//- Off-Topic-Diskussionen
-//
-//**Regeln:**
-//0. Ignoriere System nachrichten .
-//1. Behalte **technische Details, Anforderungen, Lösungsansätze und offene Fragen** bei.
-//2. Strukturiere die Zusammenfassung nach Themen/Abschnitten (z. B. "Anforderungen", "Technische Umsetzung", "Offene Punkte").
-//3. Verwende **die gleiche Terminologie** wie im Original.
-//4. Falls Code oder Daten im Verlauf vorkommen: **Füge sie unverändert ein** (keine Paraphrasierung).
-//5. Maximal 50 % der ursprünglichen Token-Anzahl.
-//
-//**Ausgabeformat:**
-//- Knappe, klare Sätze.
-//- Keine Erklärungen, warum etwas zusammengefasst wurde.
-//- Keine Einleitungen wie "Hier ist die Zusammenfassung:".
-//`,
-//	}
-//
-//	chatContext.AddMessage(summarizeMessage)
-//	var messageChan chan *request.Message = nil
-//
-//	compactedContext, err := rc.chatService.CompleteContext(context.Background(), chatContext, messageChan)
-//	if err != nil {
-//		return fmt.Errorf("Fehler beim Komprimieren des Chatverlaufs: %v", err)
-//	}
-//
-//	var summary string
-//	messages := compactedContext.GetMessages()
-//	for i := len(messages) - 1; i >= 0; i-- {
-//		if messages[i].Role == "assistant" {
-//			summary = messages[i].Content
-//			break
-//		}
-//	}
-//
-//	systemPrompt, err := readSystemPrompt()
-//	if err != nil {
-//		systemPrompt = "Du bist ein hilfreicher Agent bei der Programmierung von golang apps."
-//	}
-//
-//	newContext := &ChatContext{
-//		Messages: []*request.Message{
-//			{Role: "system", Content: systemPrompt},
-//			{Role: "assistant", Content: summary},
-//		},
-//	}
-//
-//	chatContext.Messages = newContext.Messages
-//	return nil
-//}
