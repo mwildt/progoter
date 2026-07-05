@@ -143,7 +143,6 @@ func (rc *RESTController) GetContextHandler(w http.ResponseWriter, r *http.Reque
 		case *request.Message:
 			data, _ := json.Marshal(event)
 			//slog.Default().With("logger", "RESTController", "trace", trace).
-			//	Info("send message", "type", "chat-message", "role", event.(*request.Message).Role, "content", event.(*request.Message).Content)
 			fmt.Fprintf(w, "id: %d\n", time.Now().UnixMicro())
 			fmt.Fprintf(w, "event: %s\n", "chat-message")
 			fmt.Fprintf(w, "data: %s\n", string(data))

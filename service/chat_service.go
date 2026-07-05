@@ -82,6 +82,7 @@ func readResponse(body io.Reader, handler MessageHandler) (result *request.Messa
 					Role:      choice.Delta.Role,
 					ToolCalls: choice.Delta.ToolCalls,
 					Content:   contentPart,
+					Usage:     request.Usage(completition.Usage),
 				})
 			}
 		}
@@ -199,7 +200,7 @@ func (cs *ChatService) CompleteWithHandler(ctx context.Context, chatContext *Cha
 					ToolCallId: toolCall.Id,
 					Content:    string(callContent),
 				}
-				chatContext.addMessage(toolMessage)
+				chatContext.AddMessage(toolMessage)
 				chatContext.Broadcast(toolMessage)
 			}
 		}

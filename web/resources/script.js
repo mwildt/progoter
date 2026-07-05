@@ -467,26 +467,6 @@ class ChatApp extends LitElement {
         }
     }
 
-    async loadChatContext() {
-        this.needScoll = true
-        try {
-            const response = await fetch('http://localhost:8080/chat/default/context', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-            if (!response.ok) {
-                throw new Error('Failed to load chat context');
-            }
-            const context = await response.json();
-            this.messages = context.messages || [];
-            setTimeout(() => this.scrollToBottom())
-        } catch (error) {
-            console.error('Error loading chat context:', error);
-        }
-    }
-
     setupStream() {
         this.eventSource = new EventSource('http://localhost:8080/chat/default/context');
         this.eventSource.onfinish =  () => console.warn("finish")
@@ -511,11 +491,11 @@ class ChatApp extends LitElement {
             const lastRole = this.messages.length > 0 ? this.messages[lastMessage].role : undefined
 
             if (lastRole !== message.role) {
-                console.warn("NEW MESSAGE!!! lastMessage", lastMessage, "lastRole", lastRole, "message.role", message.role, message)
+                console.warn("NEW MESSAGE!!!", message)
                 lastMessage++
                 this.messages = [...this.messages, message] ;
             } else {
-                console.warn("APPEND MESSAGE!!! lastMessage", lastMessage, "lastRole", lastRole, "message.role", message.role, message)
+                console.warn("APPEND MESSAGE!!! lastMessage",  message)
                 this.messages[lastMessage] = {
                     ...this.messages[lastMessage],
                     ... message,
