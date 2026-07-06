@@ -172,6 +172,8 @@ func (cs *ChatService) Complete(ctx context.Context, chatContext *ChatContext) (
 
 func (cs *ChatService) CompleteWithHandler(ctx context.Context, chatContext *ChatContext, handler MessageHandler) (*ChatContext, error) {
 
+	isFirstIteration := true
+
 	for {
 		// wurde der context ggf in der zwischenzeit abgebrochen?
 		select {
@@ -204,6 +206,24 @@ func (cs *ChatService) CompleteWithHandler(ctx context.Context, chatContext *Cha
 				chatContext.AddMessage(toolMessage)
 				chatContext.Broadcast(toolMessage)
 			}
+		}
+
+		// Ab dem zweiten Durchlauf prüfen, ob der Kontext komprimiert werden muss
+		if !isFirstIteration {
+			// Aktuelle Kontextgröße aus der letzten Response-Nachricht lesen
+			currentContextSize := responseMessage.Usage.TotalTokens
+			maxContextSize := 200.000
+
+			// Prüfen, ob die Kontextgröße 70% überschreitet
+			if maxContextSize > 0 && currentContextSize > 0 {
+				percentageUsed := float64(currentContextSize) / float64(maxContextSize)
+				if percentageUsed > 0.7 {
+					slog.Default().Info("Kontextgröße überschreitet 70%, Komprimierung wird durchgeführt")
+					chatContext.Compcat(cs)
+				}
+			}
+		} else {
+			isFirstIteration = false
 		}
 	}
 	slog.Default().Info("CompleteWithHandler <<")
