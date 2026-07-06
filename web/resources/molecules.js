@@ -1,7 +1,7 @@
 import {css, html, LitElement} from 'https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js';
+import './atoms.js';
 
-import {marked} from "https://cdn.jsdelivr.net/npm/marked/lib/marked.esm.js";
-import DOMPurify from "https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.es.mjs";
+
 
 // AppLayout Component
 class AppLayout extends LitElement {
@@ -26,38 +26,7 @@ class AppLayout extends LitElement {
 
 customElements.define("app-layout", AppLayout);
 
-// MarkdownView Component
-class MarkdownView extends LitElement {
-    static properties = {
-        content: {type: String},
-    };
 
-    constructor() {
-        super();
-        this.content = "# Hallo\n**Markdown sicher gerendert**";
-    }
-
-    static styles = css`
-    .md {
-      line-height: 1.5;
-    }
-
-    .md pre {
-      padding: 10px;
-      overflow: auto;
-    }
-  `;
-
-    render() {
-        const rawHtml = marked.parse(this.content || "");
-        const safeHtml = DOMPurify.sanitize(rawHtml);
-        return html`
-            <div class="md" .innerHTML=${safeHtml}></div>
-        `;
-    }
-}
-
-customElements.define("markdown-view", MarkdownView);
 
 // Message Component
 class Message extends LitElement {
@@ -283,7 +252,7 @@ class Message extends LitElement {
                     <span>${this.collapsed ? '▶' : '▼'}</span>
                 </div>
                 <div class="message-content ${this.collapsed ? '' : 'visible'}">
-                    <markdown-view .content=${this.message.content}></markdown-view>
+                    <atomic-markdown .content=${this.message.content}></atomic-markdown>
                     ${this.renderToolCalls()}
                     ${this.renderUseInfo()}
                 </div>
@@ -317,20 +286,7 @@ class InputBar extends LitElement {
               min-height: 1.2em;
         }
 
-        button {
-            margin-left: 10px;
-            padding: 10px 20px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
 
-        button:hover {
-            background-color: #0056b3;
-        }
     `;
 
     constructor() {
@@ -347,7 +303,7 @@ class InputBar extends LitElement {
                         @input=${this.handleInput}
                         @keyup=${this.handleKeyUp}
                         placeholder="Type your message here..." ></textarea>
-                <button ?disabled=${this.processing} @click=${this.handleSend}>Send</button>
+                <atomic-button label="Send" ?disabled=${this.processing} @button-click=${this.handleSend}></atomic-button>
             </div>
         `;
     }

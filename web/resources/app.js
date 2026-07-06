@@ -1,5 +1,7 @@
 import {css, html, LitElement} from 'https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js';
 
+import './molecules.js';
+
 // ChatApp Component
 class ChatApp extends LitElement {
 
@@ -183,20 +185,6 @@ class ChatApp extends LitElement {
             z-index: 100;
         }
 
-        .header button {
-            padding: 8px 16px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        .header button:hover {
-            background-color: #0056b3;
-        }
-
         .messages {
             flex: 1;
             overflow-y: auto;
@@ -224,9 +212,9 @@ class ChatApp extends LitElement {
             <div class="chat-container mode-${initial ? 'init' : 'chat'}">
                 ${initial ? undefined : html`
                     <div class="header">
-                        <button ?disabled=${!this.processing} @click=${this.cancelChat}>Cancel</button>
-                        <button ?disabled=${this.processing} @click=${this.compactChat}>Compact</button>
-                        <button ?disabled=${this.processing} @click=${this.clearChat}>Clear</button>
+                        <atomic-button label="Cancel" ?disabled=${!this.processing} @button-click=${this.cancelChat}></atomic-button>
+                        <atomic-button label="Compact" ?disabled=${this.processing} @button-click=${this.compactChat}></atomic-button>
+                        <atomic-button label="Clear" ?disabled=${this.processing} @button-click=${this.clearChat}></atomic-button>
                     </div>
                     <div class="messages">
                         ${this.messages.map(msg => html`
