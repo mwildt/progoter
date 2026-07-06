@@ -196,7 +196,7 @@ func (cs *ChatService) CompleteWithHandler(ctx context.Context, chatContext *Cha
 			for _, toolCall := range responseMessage.ToolCalls {
 				callContent, err := cs.callTool(ctx, chatContext, toolCall)
 				if err != nil {
-					slog.Default().Error("Felgler beim aufruf eines tools", "tool", toolCall.Type, "error", err)
+					slog.Default().Error("Fehler beim Aufruf eines Tools", "tool", toolCall.Type, "error", err)
 				}
 				toolMessage := &request.Message{
 					Role:       "tool",
@@ -256,6 +256,8 @@ func (cs *ChatService) callTool(ctx context.Context, chatContext *ChatContext, c
 		return tools.CheckTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else if call.Function.Name == "replace_file_lines" {
 		return tools.ReplaceFileLinesTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
+	} else if call.Function.Name == "golang" {
+		return tools.GolangTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else {
 		return nil, errors.New("tool nicht gefunden")
 	}

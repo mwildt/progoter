@@ -1,0 +1,253 @@
+{
+  "model": "devstral-medium-latest",
+  "stream": true,
+  "messages": [
+    {
+      "role": "system",
+      "content": "Du bist ein präziser, effizienter Coding-Agent. Deine Aufgabe ist es, Softwareanfragen strukturiert und zielgerichtet umzusetzen.\n\n**Phasen:**\n1. **Anfrage analysieren:** Kläre Anforderungen, Ziele und Randbedingungen. Frage bei Unklarheiten nach.\n2. **Codebase und Doku analysieren:** Prüfe vorhandenen Code, Abhängigkeiten, Architektur und Dokumentation. Identifiziere Lücken oder Konflikte.\n3. **Plan erstellen:** Definiere klare, umsetzbare Schritte mit Prioritäten und Meilensteinen.\n4. **Umsetzen:** Schreibe sauberen, wartbaren Code (Standard: Go). Nutze bestehende Bibliotheken nur, wenn der Aufwand einer Eigenimplementierung zu groß wäre. Sei sparsam mit Abhängigkeiten.\n5. **Verifizieren:** Teste den Code (Unit/Integration), prüfe Edge Cases und validiere gegen die Anforderungen.\n\n**Regeln:**\n- Sei direkt und lösungsorientiert.\n- Kommuniziere Blockaden oder Abhängigkeiten sofort.\n- Dokumentiere Entscheidungen und Änderungen knapp im Code oder separater Readme.\n- Kein Over-Engineering. Bevorzuge einfache, robuste Lösungen.\n\nFalls du denselben Fehler zweimal machst, tritt einen schritt zurück und denke nochmal drüber nach, was genau zu tun ist."
+    },
+    {
+      "role": "user",
+      "content": "golang build cmd/web/main.go\n"
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "write_file",
+        "description": "Schreibt den Inhalt in eine Datei oder erstellt eine neue Datei",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "content": {
+              "type": "string",
+              "name": "content",
+              "description": "Der Inhalt, der in die Datei geschrieben werden soll.",
+              "items": null
+            },
+            "path": {
+              "type": "string",
+              "name": "path",
+              "description": "Pfad zur Datei, die geschrieben oder erstellt werden soll.",
+              "items": null
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_files",
+        "description": "Gibt eine Liste mit allen Dateien im Projekt zurück, die einem Glob-Ausdruck entsprechen. Denke an WildCards (*) beim aufruf. ",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "name": "pattern",
+              "description": "Ein optionaler Glob-Ausdruck, um Dateien zu filtern. Wenn nicht angegeben, werden alle Dateien zurückgegeben.",
+              "items": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Liest den Inhalt einer Datei",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "name": "path",
+              "description": "Path",
+              "items": null
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "create_dir",
+        "description": "Erstellt ein neues Verzeichnis",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "name": "path",
+              "description": "Pfad zum Verzeichnis, das erstellt werden soll.",
+              "items": null
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "replace_file_lines",
+        "description": "Ersetzt einen Bereich von Zeilen in einer Datei. ",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "end_line": {
+              "type": "integer",
+              "name": "end_line",
+              "description": "Die Endzeile, bis zu der ersetzt werden soll (inklusiv).",
+              "items": null
+            },
+            "new_content": {
+              "type": "string",
+              "name": "new_content",
+              "description": "Der neue Inhalt, der die Zeilen ersetzen soll.",
+              "items": null
+            },
+            "path": {
+              "type": "string",
+              "name": "path",
+              "description": "Pfad zur Datei, die bearbeitet werden soll.",
+              "items": null
+            },
+            "start_line": {
+              "type": "integer",
+              "name": "start_line",
+              "description": "Die Startzeile, ab der ersetzt werden soll (inklusiv).",
+              "items": null
+            }
+          },
+          "required": [
+            "path",
+            "start_line",
+            "end_line",
+            "new_content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "edit_file",
+        "description": "Ersetzt einen Teil des Inhalts einer Datei. Der zu ersetzende Teil muss byte-genau angegeben werden.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "new_content": {
+              "type": "string",
+              "name": "new_content",
+              "description": "Der neue Text, der den alten ersetzen soll.",
+              "items": null
+            },
+            "old_content": {
+              "type": "string",
+              "name": "old_content",
+              "description": "Der Text, der ersetzt werden soll.",
+              "items": null
+            },
+            "path": {
+              "type": "string",
+              "name": "path",
+              "description": "Pfad zur Datei, die bearbeitet werden soll.",
+              "items": null
+            },
+            "replace_all": {
+              "type": "boolean",
+              "name": "replace_all",
+              "description": "Wenn true, werden alle Vorkommen von old_content ersetzt. Andernfalls nur das erste.",
+              "items": null
+            }
+          },
+          "required": [
+            "path",
+            "new_content",
+            "old_content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "git_do",
+        "description": "Fügt den aktuellen Stand zu Git hinzu, commited und pusht nach origin",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "commit_message": {
+              "type": "string",
+              "name": "commit_message",
+              "description": "Die Commit-Nachricht für den Git-Commit.",
+              "items": null
+            }
+          },
+          "required": [
+            "commit_message"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "git_diff",
+        "description": "Zeigt die Änderungen seit dem letzten Commit an",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "stop_process",
+        "description": "Beendet den laufenden Prozess.",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "golang",
+        "description": "Führt einen beliebigen Go-Befehl in einem Podman-Container aus.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "array",
+              "description": "Die Argumente für den Go-Befehl, z. B. ['test', './...'] oder ['run', 'main.go'].",
+              "items": {
+                "type": "string",
+                "items": null
+              }
+            }
+          },
+          "required": [
+            "command"
+          ]
+        }
+      }
+    }
+  ]
+}

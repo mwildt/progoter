@@ -52,9 +52,10 @@ type Tool struct {
 }
 
 type ArgumentProperty struct {
-	Type        string `json:"type"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Type        string            `json:"type"`
+	Name        string            `json:"name,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Items       *ArgumentProperty `json:"items,omitempty"`
 }
 
 type FunctionParams struct {

@@ -65,39 +65,39 @@ func (t EditFileTool) Execute(basePath string, args string) ([]byte, error) {
 	var replaceFileContentArgs ReplaceFileContentArgs
 	err := json.Unmarshal([]byte(args), &replaceFileContentArgs)
 	if err != nil {
-		return t.errorResponse("Fehler beim Parsen der Argumente: " + err.Error())
+		return errorResponse("Fehler beim Parsen der Argumente: ", ParseError)
 	}
 
 	// Validierung der Argumente
 	if replaceFileContentArgs.OldContent == replaceFileContentArgs.NewContent {
-		return t.errorResponse("old_content und new_content sind identisch. Keine Änderungen erforderlich.")
+		return successResponse("old_content und new_content sind identisch. Keine Änderungen erforderlich.")
 	}
 
 	if replaceFileContentArgs.OldContent == "" {
-		return t.errorResponse("old_content darf nicht leer sein.")
+		return errorResponse("old_content darf nicht leer sein.", ToolError("old_content_empty"))
 	}
 
 	finalPath, err := filepath.Abs(path.Join(basePath, replaceFileContentArgs.Path))
 	if err != nil {
-		return t.errorResponse("Fehler beim Erstellen des absoluten Pfads: " + err.Error())
+		return errorResponse("Fehler beim Erstellen des absoluten Pfads: ", err)
 	}
 
 	// Überprüfe, ob die Datei existiert
 	if _, err := os.Stat(finalPath); os.IsNotExist(err) {
-		return t.errorResponse("Die Datei existiert nicht: " + finalPath)
+		return errorResponse("Die Datei existiert nicht: "+finalPath, err)
 	}
 
 	// Lese den Inhalt der Datei
 	content, err := os.ReadFile(finalPath)
 	if err != nil {
-		return t.errorResponse("Fehler beim Lesen der Datei: " + err.Error())
+		return errorResponse("Fehler beim Lesen der Datei: ", err)
 	}
 
 	fileContent := string(content)
 
 	// Prüfe, ob der zu ersetzende Inhalt vorhanden ist
 	if !strings.Contains(fileContent, replaceFileContentArgs.OldContent) {
-		return t.errorResponse("Der zu ersetzende Inhalt wurde in der Datei nicht gefunden.")
+		return errorResponse("Der zu ersetzende Inhalt wurde in der Datei nicht gefunden.", ToolError("not found"))
 	}
 
 	// Ersetze den Inhalt
@@ -110,18 +110,8 @@ func (t EditFileTool) Execute(basePath string, args string) ([]byte, error) {
 
 	err = os.WriteFile(finalPath, []byte(newFileContent), 0644)
 	if err != nil {
-		return t.errorResponse("Fehler beim Schreiben der Datei: " + err.Error())
+		return errorResponse("Fehler beim Schreiben der Datei: ", err)
 	}
 
-	return t.successResponse("Replacement erfolgreich")
-}
-
-func (t *EditFileTool) errorResponse(message string) ([]byte, error) {
-	status := StatusResponse{Status: "ERROR", Error: message}
-	return json.Marshal(status)
-}
-
-func (t *EditFileTool) successResponse(message string) ([]byte, error) {
-	status := StatusResponse{Status: "OK", Message: message}
-	return json.Marshal(status)
+	return successResponse("Replacement erfolgreich")
 }
