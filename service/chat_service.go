@@ -212,7 +212,7 @@ func (cs *ChatService) CompleteWithHandler(ctx context.Context, chatContext *Cha
 		if !isFirstIteration {
 			// Aktuelle Kontextgröße aus der letzten Response-Nachricht lesen
 			currentContextSize := responseMessage.Usage.TotalTokens
-			maxContextSize := 200.000
+			maxContextSize := 200000
 
 			// Prüfen, ob die Kontextgröße 70% überschreitet
 			if maxContextSize > 0 && currentContextSize > 0 {

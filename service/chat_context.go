@@ -237,14 +237,12 @@ func (cc *ChatContext) Dump() error {
 }
 
 func (cc *ChatContext) Compcat(service *ChatService) error {
+
 	prompt, err := readCompcatDefaultPrompt()
 	if err != nil {
 		return err
 	}
-	summarizeMessage := &request.Message{
-		Role:    "user",
-		Content: prompt,
-	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	cc.mu.Lock()
@@ -255,15 +253,50 @@ func (cc *ChatContext) Compcat(service *ChatService) error {
 	}()
 	cc.cancel = cancel
 	cc.Broadcast(StateProcessing)
-	cc.addMessage(summarizeMessage)
+
+	maxCompactSize := 200000
+	compactThreshold := int(0.4 * float64(maxCompactSize))
+
+	// Create a new compaction context with messages 1:n
+	compactionContext := &ChatContext{
+		BasePath: cc.BasePath,
+		Messages: []*request.Message{},
+		pubSub:   NewPubSub[any](),
+	}
+
+	lastTotalUsage := 0
+	messageRangeMange := 0
+	for _, msg := range cc.Messages {
+		// das hier geht nur, weil wir wissen, dass nur bei assistent messages eine Usage gesetzt ist.
+		if msg.Usage.TotalTokens > 0 {
+			lastTotalUsage += msg.Usage.TotalTokens
+		}
+		if lastTotalUsage < compactThreshold {
+			compactionContext.AddMessage(request.FromMessage(msg))
+			messageRangeMange += 1
+		} else {
+			break
+		}
+	}
+
+	compactionContext.addMessage(&request.Message{
+		Role:    "user",
+		Content: prompt,
+	})
+
+	// Perform compaction on the new context
 	summary := &request.Message{
 		Role: "user",
 	}
-	_, err = service.CompleteWithHandler(ctx, cc, summary)
+	_, err = service.CompleteWithHandler(ctx, compactionContext, summary)
 	if err != nil {
-		return fmt.Errorf("Fehler beim Erstellen der Datei: %v", err)
+		return fmt.Errorf("Fehler beim Kompaktieren: %v", err)
 	}
-	cc.Messages = cc.Messages[:1]
-	cc.addMessage(summary)
+
+	newMessages := append([]*request.Message{}, cc.Messages[1])           // alter system promt
+	newMessages = append(newMessages, summary)                            // zusammenfassung
+	newMessages = append(newMessages, cc.Messages[messageRangeMange:]...) // weitere nachrichten
+
+	cc.Messages = newMessages
 	return nil
 }
