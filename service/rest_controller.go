@@ -8,6 +8,11 @@ import (
 	"github.com/mwildt/progoter/request"
 	"log/slog"
 	"net/http"
+	"os"
+	"path"
+	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 )
@@ -191,4 +196,68 @@ func (rc *RESTController) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /chat/{id}/message", rc.PostMessageHandler)
 	mux.HandleFunc("GET /chat/{id}/context", rc.GetContextHandler)
 	mux.HandleFunc("POST /chat/{id}/cancel", rc.CancelContextHandler)
+	mux.HandleFunc("GET /chat/{id}/directory-structure", rc.GetDirectoryStructureHandler)
+}
+
+func (rc *RESTController) basePath(path string) string {
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	return filepath.Dir(path)
+}
+
+// GetDirectoryStructureHandler gibt die Verzeichnisstruktur des Projekts zurück.
+func (rc *RESTController) GetDirectoryStructureHandler(w http.ResponseWriter, r *http.Request) {
+	requestPath := r.URL.Query().Get("path")
+	if requestPath == "" {
+		requestPath = "."
+	}
+
+	id := r.PathValue("id")
+	if id == "" {
+		id = "default"
+	}
+
+	chatContext, exists := rc.contextManager.GetContext(id)
+	if !exists {
+		chatContext = rc.contextManager.CreateContext(id)
+	}
+
+	var entries []string
+
+	absRequestPath, err := filepath.Abs(path.Join(chatContext.BasePath, requestPath))
+	if err != nil {
+		http.NotFound(w, r)
+	}
+
+	walkdir, err := filepath.Abs(chatContext.BasePath)
+	if err != nil {
+		http.NotFound(w, r)
+	}
+
+	err = filepath.Walk(walkdir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		relPath, _ := filepath.Rel(walkdir, path)
+
+		if slices.Contains([]string{".git", ".idea"}, relPath) {
+			return filepath.SkipDir
+		}
+		if !strings.HasPrefix(path, absRequestPath) {
+			return nil
+		}
+		if !info.IsDir() {
+			entries = append(entries, relPath)
+		} else {
+			entries = append(entries, relPath+"/")
+			if path != absRequestPath {
+				return filepath.SkipDir
+			}
+		}
+		return nil
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(entries)
 }
