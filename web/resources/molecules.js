@@ -1,6 +1,161 @@
+// ContextList Component
+class ContextList extends LitElement {
+    static properties = {
+        contexts: {type: Array},
+        selectedContext: {type: String}
+    };
+
+    constructor() {
+        super();
+        this.contexts = [];
+        this.selectedContext = 'default';
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        this.fetchContexts();
+    }
+
+    static styles = css`
+        .context-list-container {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            padding: 0;
+        }
+
+        .context-list {
+            border-right: 1px solid #e9ecef;
+            padding: 10px;
+            background-color: #f8f9fa;
+            overflow-y: auto;
+            max-height: calc(100vh - 20px);
+        }
+
+        .context-item {
+            padding: 10px;
+            margin-bottom: 5px;
+            background-color: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .context-item:hover {
+            background-color: #e9ecef;
+        }
+
+        .context-item.selected {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+
+        .context-item.selected:hover {
+            background-color: #0069d9;
+        }
+
+        .new-context-button {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .new-context-button:hover {
+            background-color: #218838;
+        }
+
+        .chat-app-container {
+            flex: 1;
+            overflow: hidden;
+            width: 100%;
+        }
+    `;
+
+    async fetchContexts() {
+        try {
+            const response = await fetch('/chat');
+            if (response.ok) {
+                this.contexts = await response.json();
+                if (this.contexts.length > 0 && !this.selectedContext) {
+                    this.selectedContext = this.contexts[0];
+                }
+            } else {
+                console.error('Failed to fetch contexts');
+            }
+        } catch (error) {
+            console.error('Error fetching contexts:', error);
+        }
+    }
+
+    handleContextClick(contextId) {
+        this.selectedContext = contextId;
+    }
+
+    handleNewContext() {
+        const contextName = prompt('Enter a name for the new context:');
+        if (contextName) {
+            const basePath = prompt('Enter the base path for the new context (optional):');
+            this.createContext(contextName, basePath);
+        }
+    }
+
+    async createContext(contextId, basePath) {
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({id: contextId, basePath: basePath || ''})
+            });
+            if (response.ok) {
+                this.fetchContexts();
+            } else {
+                console.error('Failed to create context');
+            }
+        } catch (error) {
+            console.error('Error creating context:', error);
+        }
+    }
+
+    render() {
+        return html`
+            <div class="context-list-container">
+                <div class="context-list">
+                    <h3>Contexts</h3>
+                    <div>
+                        ${this.contexts.map(contextId => html`
+                            <div
+                                    class="context-item ${this.selectedContext === contextId ? 'selected' : ''}"
+                                    @click=${() => this.handleContextClick(contextId)}
+                            >
+                                ${contextId}
+                            </div>
+                        `)}
+                    </div>
+                    <button class="new-context-button" @click=${this.handleNewContext}>New Context</button>
+                </div>
+                <div class="chat-app-container">
+                    <chat-app .contextId=${this.selectedContext}></chat-app>
+                </div>
+            </div>
+        `;
+    }
+}
+
+customElements.define('context-list', ContextList);
+
+
 import {css, html, LitElement} from 'https://cdn.jsdelivr.net/gh/lit/dist@2/core/lit-core.min.js';
 import './atoms.js';
-
 
 
 // AppLayout Component

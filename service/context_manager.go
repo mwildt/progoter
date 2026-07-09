@@ -18,12 +18,12 @@ func NewContextManager() *ContextManager {
 	}
 }
 
-// CreateContext erstellt einen neuen Chat-Kontext mit der gegebenen ID.
-func (cm *ContextManager) CreateContext(id string) *ChatContext {
+// CreateContext erstellt einen neuen Chat-Kontext mit der gegebenen ID und einem Arbeitsverzeichnis.
+func (cm *ContextManager) CreateContext(id string, basePath string) *ChatContext {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	slog.Default().Info("CreateContext", "id", id)
-	context := NewChatContext()
+	slog.Default().Info("CreateContext", "id", id, "basePath", basePath)
+	context := NewChatContext(basePath)
 	cm.contexts[id] = context
 	return context
 }

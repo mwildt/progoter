@@ -71,7 +71,8 @@ func (rc *RESTController) PostMessageHandler(w http.ResponseWriter, r *http.Requ
 
 	chatContext, exists := rc.contextManager.GetContext(id)
 	if !exists {
-		chatContext = rc.contextManager.CreateContext(id)
+		http.NotFound(w, r)
+		return
 	}
 
 	var messageRequest PostMessageRequestDTO
@@ -127,7 +128,7 @@ func (rc *RESTController) GetContextHandler(w http.ResponseWriter, r *http.Reque
 	chatContext, exists := rc.contextManager.GetContext(id)
 
 	if !exists {
-		chatContext = rc.contextManager.CreateContext(id)
+		chatContext = rc.contextManager.CreateContext(id, "./")
 	}
 
 	// Setze den Content-Type-Header für SSE
@@ -197,6 +198,8 @@ func (rc *RESTController) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /chat/{id}/context", rc.GetContextHandler)
 	mux.HandleFunc("POST /chat/{id}/cancel", rc.CancelContextHandler)
 	mux.HandleFunc("GET /chat/{id}/directory-structure", rc.GetDirectoryStructureHandler)
+	mux.HandleFunc("POST /chat", rc.PostCreateContextHandler)
+	mux.HandleFunc("GET /chat", rc.GetContextsHandler)
 }
 
 func (rc *RESTController) basePath(path string) string {
@@ -204,6 +207,38 @@ func (rc *RESTController) basePath(path string) string {
 		return path
 	}
 	return filepath.Dir(path)
+}
+
+type CreateContextRequestDTO struct {
+	ID       string `json:"id"`
+	BasePath string `json:"basePath"`
+}
+
+// PostCreateContextHandler erstellt einen neuen Chat-Kontext mit der gegebenen ID und einem Arbeitsverzeichnis.
+func (rc *RESTController) PostCreateContextHandler(w http.ResponseWriter, r *http.Request) {
+	var requestDTO CreateContextRequestDTO
+	err := json.NewDecoder(r.Body).Decode(&requestDTO)
+	if err != nil {
+		http.Error(w, "Ungültige Anfrage", http.StatusBadRequest)
+		return
+	}
+
+	if requestDTO.ID == "" {
+		http.Error(w, "ID ist erforderlich", http.StatusBadRequest)
+		return
+	}
+
+	// Erstelle den neuen Kontext
+	chatContext := rc.contextManager.CreateContext(requestDTO.ID, requestDTO.BasePath)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"id": chatContext.BasePath})
+}
+
+// GetContextsHandler gibt eine Liste aller verfügbaren Kontext-IDs zurück.
+func (rc *RESTController) GetContextsHandler(w http.ResponseWriter, r *http.Request) {
+	contexts := rc.contextManager.ListContexts()
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(contexts)
 }
 
 // GetDirectoryStructureHandler gibt die Verzeichnisstruktur des Projekts zurück.
@@ -220,7 +255,8 @@ func (rc *RESTController) GetDirectoryStructureHandler(w http.ResponseWriter, r 
 
 	chatContext, exists := rc.contextManager.GetContext(id)
 	if !exists {
-		chatContext = rc.contextManager.CreateContext(id)
+		http.NotFound(w, r)
+		return
 	}
 
 	var entries []string

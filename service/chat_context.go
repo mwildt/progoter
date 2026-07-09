@@ -91,7 +91,7 @@ func readCompcatDefaultPrompt() (string, error) {
 }
 
 // NewChatContext creates a new ChatContext with an initial system message.
-func NewChatContext() *ChatContext {
+func NewChatContext(basePath string) *ChatContext {
 	slog.Default().Info("NewChatContext")
 	// Read the system prompt from the file
 	systemPrompt, err := readSystemPrompt()
@@ -101,7 +101,7 @@ func NewChatContext() *ChatContext {
 	}
 
 	return &ChatContext{
-		BasePath: "./",
+		BasePath: basePath,
 		Messages: []*request.Message{
 			{Role: "system", Content: systemPrompt},
 		},

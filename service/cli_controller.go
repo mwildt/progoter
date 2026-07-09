@@ -20,7 +20,7 @@ type CLIController struct {
 func NewCLIController(apiKey string) *CLIController {
 	return &CLIController{
 		chatService: NewChatService(apiKey),
-		chatContext: NewChatContext(),
+		chatContext: NewChatContext("./"),
 	}
 }
 

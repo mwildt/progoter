@@ -4,20 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome</title>
-    <script type="module" src="Atoms.js"></script>
-<script type="module" src="widgets.js"></script>
-<script type="module" src="app.js"></script>
+    <script type="module" src="atoms.js"></script>
+    <script type="module" src="molecules.js"></script>
+    <script type="module" src="app.js"></script>
+    <script type="module" src="layout.js"></script>
     <style>
         html, body {
             margin: 0;
             padding: 0;
+            height: 100%;
         }
     </style>
 </head>
 <body>
 
-<app-layout>
-    <chat-app></chat-app>
-</app-layout>
+<context-list></context-list>
+
 </body>
 </html>

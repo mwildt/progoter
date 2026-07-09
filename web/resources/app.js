@@ -5,153 +5,15 @@ import './molecules.js';
 // ChatApp Component
 class ChatApp extends LitElement {
 
-    connectedCallback() {
-        super.connectedCallback();
-        // this.loadChatContext();
-        this.setupStream();
-    }
-
-    async cancelChat() {
-        try {
-            const response = await fetch('http://localhost:8080/chat/default/cancel', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-            if (!response.ok) {
-                throw new Error('Failed to cancel chat');
-            }
-            await this.loadChatContext();
-        } catch (error) {
-            console.error('Error canceling chat:', error);
-        }
-    }
-
-    async compactChat() {
-        this.isLoading = true;
-        try {
-            const response = await fetch('http://localhost:8080/chat/default/compact', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-            if (!response.ok) {
-                throw new Error('Failed to compact chat');
-            }
-            await this.loadChatContext();
-        } catch (error) {
-            console.error('Error compacting chat:', error);
-        } finally {
-            this.isLoading = false;
-        }
-    }
-
-    async clearChat() {
-
-        try {
-            const response = await fetch('http://localhost:8080/chat/default/clear', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-            if (!response.ok) {
-                throw new Error('Failed to clear chat');
-            }
-            this.messages = []
-        } catch (error) {
-            console.error('Error clearing chat:', error);
-        } finally {
-            this.isLoading = false;
-        }
-    }
-
     static properties = {
         messages: {type: Array},
         processing: {},
         eventSource: {type: Object},
+        contextId: {type: String}
     };
-
-    constructor() {
-        super();
-        this.messages = [];
-        this.processing = false;
-        this.needScoll = false;
-        this.eventSource = null;
-    }
-
-    updated(changedProperties) {
-        if (this.needScoll) {
-            this.needScoll = false
-            this.scrollToBottom()
-        }
-    }
-
-    setupStream() {
-        this.eventSource = new EventSource('http://localhost:8080/chat/default/context');
-        this.eventSource.onfinish =  () => console.warn("finish")
-
-        this.eventSource.onmessage = (event) => {
-            console.warn("UNKNOWN EVENT", event);
-        }
-
-        this.eventSource.addEventListener("state-change", (event) => {
-            if (event.data === "processing") {
-                this.processing = true
-            } else if (event.data === "idle") {
-                this.processing = false
-            }
-        });
-
-        this.eventSource.addEventListener("chat-message", (event) => {
-            console.info(event.data)
-            const message = JSON.parse(event.data);
-
-            let lastMessage = this.messages.length - 1;
-            const lastRole = this.messages.length > 0 ? this.messages[lastMessage].role : undefined
-
-            if (lastRole !== message.role) {
-                console.warn("NEW MESSAGE!!!", message)
-                lastMessage++
-                this.messages = [...this.messages, message] ;
-            } else {
-                console.warn("APPEND MESSAGE!!! lastMessage",  message)
-                this.messages[lastMessage] = {
-                    ...this.messages[lastMessage],
-                    ... message,
-                    content: (this.messages[lastMessage].content || '') + (message.content || ''),
-                    tool_calls: [].concat(this.messages[lastMessage].tool_calls || []).concat(message.tool_calls || []),
-                }
-            }
-            setTimeout(() => {
-                this.requestUpdate();
-                this.scrollToBottom();
-            })
-        });
-
-        this.eventSource.onerror = (error) => {
-            console.error('EventSource failed:', error);
-            this.eventSource.close();
-        };
-    }
-
-    disconnectedCallback() {
-        super.disconnectedCallback();
-        if (this.eventSource) {
-            this.eventSource.close();
-        }
-    }
-
-    allMessagesAreSystem() {
-        return this.messages.every(m => m.role === 'system')
-    }
 
     static styles = css`
         :host {
-            max-width: 1000px;
-            min-width: 1000px;
             display: flex;
             flex-direction: column;
             height: 100vh;
@@ -175,7 +37,8 @@ class ChatApp extends LitElement {
 
         .header {
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
+            align-items: center;
             padding: 10px;
             background-color: #fff;
             border-bottom: 1px solid #ddd;
@@ -183,6 +46,16 @@ class ChatApp extends LitElement {
             position: sticky;
             top: 0;
             z-index: 100;
+        }
+
+        .context-title {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
         }
 
         .messages {
@@ -206,15 +79,167 @@ class ChatApp extends LitElement {
         }
     `;
 
+    constructor() {
+        super();
+        this.messages = [];
+        this.processing = false;
+        this.needScoll = false;
+        this.eventSource = null;
+        this.contextId = 'default';
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        this.setupStream();
+    }
+
+    disconnectedCallback() {
+        super.disconnectedCallback();
+        if (this.eventSource) {
+            this.eventSource.close();
+        }
+    }
+
+
+    updated(changedProperties) {
+        if (this.needScoll) {
+            this.needScoll = false
+            this.scrollToBottom()
+        }
+        // Wenn sich der ausgewählte Kontext ändert, den Stream neu einrichten
+        if (changedProperties.has('contextId')) {
+            this.setupStream();
+        }
+    }
+
+    async cancelChat() {
+        try {
+            const response = await fetch(`http://localhost:8080/chat/${this.contextId}/cancel`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (!response.ok) {
+                throw new Error('Failed to cancel chat');
+            }
+            await this.loadChatContext();
+        } catch (error) {
+            console.error('Error canceling chat:', error);
+        }
+    }
+
+    async compactChat() {
+        this.isLoading = true;
+        try {
+            const response = await fetch(`http://localhost:8080/chat/${this.selectedContext}/compact`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (!response.ok) {
+                throw new Error('Failed to compact chat');
+            }
+            await this.loadChatContext();
+        } catch (error) {
+            console.error('Error compacting chat:', error);
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
+    async clearChat() {
+        try {
+            const response = await fetch(`http://localhost:8080/chat/${this.selectedContext}/clear`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (!response.ok) {
+                throw new Error('Failed to clear chat');
+            }
+            this.messages = []
+        } catch (error) {
+            console.error('Error clearing chat:', error);
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
+
+    setupStream() {
+        // Schließen des bestehenden EventSource, falls vorhanden
+        if (this.eventSource) {
+            this.eventSource.close();
+        }
+
+        this.eventSource = new EventSource(`http://localhost:8080/chat/${this.contextId}/context`);
+        this.eventSource.onfinish = () => console.warn("finish")
+
+        this.eventSource.onmessage = (event) => {
+            console.warn("UNKNOWN EVENT", event);
+        }
+
+        this.eventSource.addEventListener("state-change", (event) => {
+            if (event.data === "processing") {
+                this.processing = true
+            } else if (event.data === "idle") {
+                this.processing = false
+            }
+        });
+
+        this.eventSource.addEventListener("chat-message", (event) => {
+            console.info(event.data)
+            const message = JSON.parse(event.data);
+
+            let lastMessage = this.messages.length - 1;
+            const lastRole = this.messages.length > 0 ? this.messages[lastMessage].role : undefined
+
+            if (lastRole !== message.role) {
+                console.warn("NEW MESSAGE!!!", message)
+                lastMessage++
+                this.messages = [...this.messages, message];
+            } else {
+                console.warn("APPEND MESSAGE!!! lastMessage", message)
+                this.messages[lastMessage] = {
+                    ...this.messages[lastMessage],
+                    ...message,
+                    content: (this.messages[lastMessage].content || '') + (message.content || ''),
+                    tool_calls: [].concat(this.messages[lastMessage].tool_calls || []).concat(message.tool_calls || []),
+                }
+            }
+            setTimeout(() => {
+                this.requestUpdate();
+                this.scrollToBottom();
+            })
+        });
+
+        this.eventSource.onerror = (error) => {
+            console.error('EventSource failed:', error);
+            this.eventSource.close();
+        };
+    }
+
+    allMessagesAreSystem() {
+        return this.messages.every(m => m.role === 'system')
+    }
+
+
+
     render() {
         const initial = this.allMessagesAreSystem()
         return html`
             <div class="chat-container mode-${initial ? 'init' : 'chat'}">
                 ${initial ? undefined : html`
                     <div class="header">
-                        <atomic-button label="Cancel" ?disabled=${!this.processing} @button-click=${this.cancelChat}></atomic-button>
-                        <atomic-button label="Compact" ?disabled=${this.processing} @button-click=${this.compactChat}></atomic-button>
-                        <atomic-button label="Clear" ?disabled=${this.processing} @button-click=${this.clearChat}></atomic-button>
+                        <div class="context-title">Context: ${this.contextId}</div>
+                        <div class="header-actions">
+                            <atomic-button label="Cancel" ?disabled=${!this.processing} @button-click=${this.cancelChat}></atomic-button>
+                            <atomic-button label="Compact" ?disabled=${this.processing} @button-click=${this.compactChat}></atomic-button>
+                            <atomic-button label="Clear" ?disabled=${this.processing} @button-click=${this.clearChat}></atomic-button>
+                        </div>
                     </div>
                     <div class="messages">
                         ${this.messages.map(msg => html`
@@ -222,7 +247,7 @@ class ChatApp extends LitElement {
                     </div>
                 `}
                 <div class="input-area">
-                    ${this.processing ? html`<pre>processing</pre>`:null}
+                    ${this.processing ? html`<pre>processing</pre>` : null}
                     ${initial ? html`<h3>Was geht up?</h3>` : undefined}
                     <chat-input .processing=${this.processing}
                                 @send-message=${this.sendMessage}
@@ -241,7 +266,7 @@ class ChatApp extends LitElement {
 
     async sendMessage(e) {
         try {
-            const response = await fetch('http://localhost:8080/chat/default/message', {
+            const response = await fetch(`http://localhost:8080/chat/${this.contextId}/message`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -44,17 +44,17 @@ func (t ReadFileTool) Execute(basePath string, args string) ([]byte, error) {
 	var readFileArgs ReadFileArgs
 	err := json.Unmarshal([]byte(args), &readFileArgs)
 	if err != nil {
-		return nil, err
+		return errorResponse("Args konnten nicht geparst werden", err)
 	}
 
 	finalPath, err := filepath.Abs(path.Join(basePath, readFileArgs.Path))
 	if err != nil {
-		return nil, err
+		return errorResponse("Probleme mit dem FilePath", err)
 	}
 
 	content, err := os.ReadFile(finalPath)
 	if err != nil {
-		return nil, err
+		return errorResponse("Datei konnte nicht gelesen werden", err)
 	}
 	return content, nil
 }

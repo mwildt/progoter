@@ -1,0 +1,10 @@
+GET localhost:8080/chat/default/directory-structure?path=serv
+
+###
+GET localhost:8080/chat/default/directory-structure
+
+
+###
+GET localhost:8080/chat/default/directory-structure?path=cmd/web/
+
+
