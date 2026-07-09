@@ -18,55 +18,22 @@ class NewContextForm extends LitElement {
             padding: 20px;
             background-color: #fff;
             border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
 
         .new-context-form h3 {
             margin-top: 0;
-        }
-
-        .new-context-form label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: bold;
-        }
-
-        .new-context-form input {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .new-context-form button {
-            padding: 10px 15px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .new-context-form button:hover {
-            background-color: #218838;
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        .form-actions button {
-            flex: 1;
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: #495057;
+            font-weight: 500;
         }
     `;
 
     async handleSubmit(e) {
         e.preventDefault();
-        const formData = new FormData(e.target);
-        const contextId = formData.get('contextId');
-        const basePath = formData.get('basePath');
+        const contextId = this.contextId;
+        const basePath = this.basePath;
         
         if (contextId) {
             try {
@@ -99,6 +66,14 @@ class NewContextForm extends LitElement {
         }));
     }
 
+    handleContextIdChange(e) {
+        this.contextId = e.detail.value;
+    }
+
+    handleBasePathChange(e) {
+        this.basePath = e.detail.value;
+    }
+
     render() {
         if (!this.visible) return html``;
         
@@ -106,14 +81,25 @@ class NewContextForm extends LitElement {
             <div class="new-context-form">
                 <h3>Create New Context</h3>
                 <form @submit=${this.handleSubmit}>
-                    <label for="contextId">Context ID:</label>
-                    <input type="text" id="contextId" name="contextId" .value=${this.contextId} required>
-                    <label for="basePath">Base Path (optional):</label>
-                    <input type="text" id="basePath" name="basePath" .value=${this.basePath}>
-                    <div class="form-actions">
-                        <button type="submit">Create</button>
-                        <button type="button" @click=${this.handleCancel}>Cancel</button>
-                    </div>
+                    <atomic-label for="contextId">Context ID:</atomic-label>
+                    <atomic-input
+                        id="contextId"
+                        .value=${this.contextId}
+                        placeholder="Enter context ID"
+                        required
+                        @input-change=${this.handleContextIdChange}
+                    ></atomic-input>
+                    <atomic-label for="basePath">Base Path (optional):</atomic-label>
+                    <atomic-input
+                        id="basePath"
+                        .value=${this.basePath}
+                        placeholder="Enter base path"
+                        @input-change=${this.handleBasePathChange}
+                    ></atomic-input>
+                    <atomic-form-actions>
+                        <atomic-button variant="primary" type="submit" label="Create" @button-click=${this.handleSubmit}></atomic-button>
+                        <atomic-button variant="secondary" type="button" label="Cancel" @button-click=${this.handleCancel}></atomic-button>
+                    </atomic-form-actions>
                 </form>
             </div>
         `;
@@ -185,63 +171,90 @@ class ContextList extends LitElement {
     static styles = css`
         .context-list-container {
             display: grid;
-            grid-template-columns: 200px 1fr;
+            grid-template-columns: 220px 1fr;
             height: 100vh;
             width: 100vw;
             margin: 0;
             padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
         }
 
         .context-list {
             border-right: 1px solid #e9ecef;
-            padding: 10px;
+            padding: 15px;
             background-color: #f8f9fa;
             overflow-y: auto;
             max-height: calc(100vh - 20px);
         }
 
+        .context-list h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: #495057;
+            font-size: 16px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
         .context-item {
-            padding: 10px;
-            margin-bottom: 5px;
-            background-color: #fff;
+            padding: 10px 12px;
+            margin-bottom: 6px;
+            background-color: transparent;
             border-radius: 4px;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: background-color 0.2s ease;
+            display: flex;
+            align-items: center;
+            color: #495057;
         }
 
         .context-item:hover {
-            background-color: #e9ecef;
+            background-color: rgba(0, 0, 0, 0.03);
         }
 
         .context-item.selected {
-            background-color: #007bff;
-            color: white;
-            font-weight: bold;
+            background-color: rgba(0, 123, 255, 0.1);
+            color: #007bff;
+            font-weight: 500;
         }
 
         .context-item.selected:hover {
-            background-color: #0069d9;
+            background-color: rgba(0, 123, 255, 0.15);
+        }
+
+        .context-item-icon {
+            margin-right: 8px;
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .context-item.selected .context-item-icon {
+            color: #007bff;
         }
 
         .new-context-button {
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #28a745;
-            color: white;
-            border: none;
+            margin-top: 15px;
+            padding: 8px;
+            background-color: transparent;
+            color: #28a745;
+            border: 1px solid #28a745;
             border-radius: 4px;
             cursor: pointer;
             width: 100%;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            font-size: 14px;
         }
 
         .new-context-button:hover {
-            background-color: #218838;
+            background-color: rgba(40, 167, 69, 0.1);
         }
 
         .chat-app-container {
             flex: 1;
             overflow: hidden;
             width: 100%;
+            background-color: #fff;
         }
 
         .empty-state {
@@ -251,6 +264,7 @@ class ContextList extends LitElement {
             height: 100%;
             text-align: center;
             color: #6c757d;
+            font-size: 14px;
         }
     `;
 
@@ -292,11 +306,12 @@ class ContextList extends LitElement {
                                     class="context-item ${this.selectedContext === contextId ? 'selected' : ''}"
                                     @click=${() => this.handleContextClick(contextId)}
                             >
-                                ${contextId}
+                                <span class="context-item-icon">📄</span>
+                                <span>${contextId}</span>
                             </div>
                         `)}
                     </div>
-                    <button class="new-context-button" @click=${this.handleNewContext}>New Context</button>
+                    <button class="new-context-button" @click=${this.handleNewContext}>+ New Context</button>
                 </div>
                 <div class="chat-app-container">
                     ${this.showNewContextForm || this.contexts.length === 0 ? html`
