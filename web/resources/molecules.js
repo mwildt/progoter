@@ -1,14 +1,141 @@
+// NewContextForm Component
+class NewContextForm extends LitElement {
+    static properties = {
+        visible: {type: Boolean},
+        contextId: {type: String},
+        basePath: {type: String}
+    };
+
+    constructor() {
+        super();
+        this.visible = false;
+        this.contextId = '';
+        this.basePath = '';
+    }
+
+    static styles = css`
+        .new-context-form {
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .new-context-form h3 {
+            margin-top: 0;
+        }
+
+        .new-context-form label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .new-context-form input {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .new-context-form button {
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .new-context-form button:hover {
+            background-color: #218838;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .form-actions button {
+            flex: 1;
+        }
+    `;
+
+    async handleSubmit(e) {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const contextId = formData.get('contextId');
+        const basePath = formData.get('basePath');
+        
+        if (contextId) {
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({id: contextId, basePath: basePath || ''})
+                });
+                if (response.ok) {
+                    this.dispatchEvent(new CustomEvent('context-created', {
+                        detail: { contextId: contextId, basePath: basePath || '' },
+                        bubbles: true,
+                        composed: true
+                    }));
+                } else {
+                    console.error('Failed to create context');
+                }
+            } catch (error) {
+                console.error('Error creating context:', error);
+            }
+        }
+    }
+
+    handleCancel() {
+        this.dispatchEvent(new CustomEvent('cancel', {
+            bubbles: true,
+            composed: true
+        }));
+    }
+
+    render() {
+        if (!this.visible) return html``;
+        
+        return html`
+            <div class="new-context-form">
+                <h3>Create New Context</h3>
+                <form @submit=${this.handleSubmit}>
+                    <label for="contextId">Context ID:</label>
+                    <input type="text" id="contextId" name="contextId" .value=${this.contextId} required>
+                    <label for="basePath">Base Path (optional):</label>
+                    <input type="text" id="basePath" name="basePath" .value=${this.basePath}>
+                    <div class="form-actions">
+                        <button type="submit">Create</button>
+                        <button type="button" @click=${this.handleCancel}>Cancel</button>
+                    </div>
+                </form>
+            </div>
+        `;
+    }
+}
+
+customElements.define('new-context-form', NewContextForm);
+
+
 // ContextList Component
 class ContextList extends LitElement {
     static properties = {
         contexts: {type: Array},
-        selectedContext: {type: String}
+        selectedContext: {type: String},
+        showNewContextForm: {type: Boolean}
     };
 
     constructor() {
         super();
         this.contexts = [];
         this.selectedContext = 'default';
+        this.showNewContextForm = false;
     }
 
     connectedCallback() {
@@ -26,7 +153,33 @@ class ContextList extends LitElement {
             this.selectedContext = this.contexts[0];
         } else {
             this.selectedContext = null;
+            this.showNewContextForm = true;
         }
+    }
+
+    async handleContextCreated(e) {
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({id: e.detail.contextId, basePath: e.detail.basePath || ''})
+            });
+            if (response.ok) {
+                await this.fetchContexts();
+                this.selectedContext = e.detail.contextId;
+                this.showNewContextForm = false;
+            } else {
+                console.error('Failed to create context');
+            }
+        } catch (error) {
+            console.error('Error creating context:', error);
+        }
+    }
+
+    handleCancelNewContext() {
+        this.showNewContextForm = false;
     }
 
     static styles = css`
@@ -90,6 +243,15 @@ class ContextList extends LitElement {
             overflow: hidden;
             width: 100%;
         }
+
+        .empty-state {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            text-align: center;
+            color: #6c757d;
+        }
     `;
 
     async fetchContexts() {
@@ -99,6 +261,8 @@ class ContextList extends LitElement {
                 this.contexts = await response.json();
                 if (this.contexts.length > 0 && !this.selectedContext) {
                     this.selectedContext = this.contexts[0];
+                } else if (this.contexts.length === 0) {
+                    this.showNewContextForm = true;
                 }
             } else {
                 console.error('Failed to fetch contexts');
@@ -110,33 +274,11 @@ class ContextList extends LitElement {
 
     handleContextClick(contextId) {
         this.selectedContext = contextId;
+        this.showNewContextForm = false;
     }
 
     handleNewContext() {
-        const contextName = prompt('Enter a name for the new context:');
-        if (contextName) {
-            const basePath = prompt('Enter the base path for the new context (optional):');
-            this.createContext(contextName, basePath);
-        }
-    }
-
-    async createContext(contextId, basePath) {
-        try {
-            const response = await fetch('/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({id: contextId, basePath: basePath || ''})
-            });
-            if (response.ok) {
-                this.fetchContexts();
-            } else {
-                console.error('Failed to create context');
-            }
-        } catch (error) {
-            console.error('Error creating context:', error);
-        }
+        this.showNewContextForm = true;
     }
 
     render() {
@@ -157,9 +299,24 @@ class ContextList extends LitElement {
                     <button class="new-context-button" @click=${this.handleNewContext}>New Context</button>
                 </div>
                 <div class="chat-app-container">
-                    <chat-app .contextId=${this.selectedContext}
-                        @context-deleted=${this.handleContextDeleted}
-                    ></chat-app>
+                    ${this.showNewContextForm || this.contexts.length === 0 ? html`
+                        <new-context-form .visible=${true}
+                            .contextId=${this.contexts.length === 0 ? 'default' : ''}
+                            .basePath=${this.contexts.length === 0 ? '.' : ''}
+                            @context-created=${this.handleContextCreated}
+                            @cancel=${this.handleCancelNewContext}
+                        ></new-context-form>
+                    ` : html`
+                        ${this.selectedContext ? html`
+                            <chat-app .contextId=${this.selectedContext}
+                                @context-deleted=${this.handleContextDeleted}
+                            ></chat-app>
+                        ` : html`
+                            <div class="empty-state">
+                                <p>No context selected. Please create a new context or select an existing one.</p>
+                            </div>
+                        `}
+                    `}
                 </div>
             </div>
         `;
