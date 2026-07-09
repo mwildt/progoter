@@ -132,7 +132,7 @@ class ChatApp extends LitElement {
     async compactChat() {
         this.isLoading = true;
         try {
-            const response = await fetch(`http://localhost:8080/chat/${this.selectedContext}/compact`, {
+            const response = await fetch(`http://localhost:8080/chat/${this.contextId}/compact`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -151,7 +151,7 @@ class ChatApp extends LitElement {
 
     async clearChat() {
         try {
-            const response = await fetch(`http://localhost:8080/chat/${this.selectedContext}/clear`, {
+            const response = await fetch(`http://localhost:8080/chat/${this.contextId}/clear`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
