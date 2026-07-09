@@ -168,6 +168,33 @@ class ChatApp extends LitElement {
         }
     }
 
+    confirmDelete() {
+        if (confirm('Are you sure you want to delete this context?')) {
+            this.deleteContext();
+        }
+    }
+
+    async deleteContext() {
+        try {
+            const response = await fetch(`http://localhost:8080/chat/${this.contextId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            if (!response.ok) {
+                throw new Error('Failed to delete context');
+            }
+            this.dispatchEvent(new CustomEvent('context-deleted', {
+                detail: { contextId: this.contextId },
+                bubbles: true,
+                composed: true
+            }));
+        } catch (error) {
+            console.error('Error deleting context:', error);
+        }
+    }
+
 
     setupStream() {
         // Schließen des bestehenden EventSource, falls vorhanden
@@ -239,6 +266,7 @@ class ChatApp extends LitElement {
                             <atomic-button label="Cancel" ?disabled=${!this.processing} @button-click=${this.cancelChat}></atomic-button>
                             <atomic-button label="Compact" ?disabled=${this.processing} @button-click=${this.compactChat}></atomic-button>
                             <atomic-button label="Clear" ?disabled=${this.processing} @button-click=${this.clearChat}></atomic-button>
+                            <atomic-button label="Delete" ?disabled=${this.processing} @button-click=${this.confirmDelete}></atomic-button>
                         </div>
                     </div>
                     <div class="messages">

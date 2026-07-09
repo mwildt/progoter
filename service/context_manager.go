@@ -44,10 +44,14 @@ func (cm *ContextManager) SetContext(id string, cc *ChatContext) {
 }
 
 // DeleteContext löscht den Chat-Kontext für die gegebene ID.
-func (cm *ContextManager) DeleteContext(id string) {
+func (cm *ContextManager) DeleteContext(id string) bool {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
-	delete(cm.contexts, id)
+	_, exists := cm.contexts[id]
+	if exists {
+		delete(cm.contexts, id)
+	}
+	return exists
 }
 
 // ListContexts gibt eine Liste aller verfügbaren Kontext-IDs zurück.

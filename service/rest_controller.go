@@ -189,6 +189,21 @@ func (rc *RESTController) CancelContextHandler(w http.ResponseWriter, r *http.Re
 	}
 }
 
+// DeleteContextHandler löscht den Chat-Kontext für die gegebene ID.
+func (rc *RESTController) DeleteContextHandler(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "ID ist erforderlich", http.StatusBadRequest)
+		return
+	}
+
+	if exists := rc.contextManager.DeleteContext(id); !exists {
+		http.NotFound(w, r)
+	} else {
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 // SetupRoutes richtet die REST-Routen ein.
 func (rc *RESTController) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /chat/{id}/clear", rc.PostClearContextHandler)
@@ -197,6 +212,7 @@ func (rc *RESTController) SetupRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /chat/{id}/message", rc.PostMessageHandler)
 	mux.HandleFunc("GET /chat/{id}/context", rc.GetContextHandler)
 	mux.HandleFunc("POST /chat/{id}/cancel", rc.CancelContextHandler)
+	mux.HandleFunc("DELETE /chat/{id}", rc.DeleteContextHandler)
 	mux.HandleFunc("GET /chat/{id}/directory-structure", rc.GetDirectoryStructureHandler)
 	mux.HandleFunc("POST /chat", rc.PostCreateContextHandler)
 	mux.HandleFunc("GET /chat", rc.GetContextsHandler)

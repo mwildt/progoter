@@ -23,6 +23,7 @@ Dieses Projekt ist ein Experiment, um zu untersuchen, wie gut sich ein Bot mit C
 
 ## Tools
 - **Dateiverwaltung**: Ein Tool zum Schreiben, Überschreiben und Anlegen von Dateien in Containern.
+- **Chat-Context-Verwaltung**: Eine Funktion zum Löschen von Chat-Contexts. Nutzer können einen Context über einen Button im Header löschen, wobei ein Bestätigungsdialog angezeigt wird. Nach dem Löschen wird automatisch ein anderer Context ausgewählt.
 
 ## Nächste Schritte
 1. Entwicklung eines Prototyps für die Bot-Steuerung.

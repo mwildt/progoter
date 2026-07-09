@@ -16,6 +16,19 @@ class ContextList extends LitElement {
         this.fetchContexts();
     }
 
+    disconnectedCallback() {
+        super.disconnectedCallback();
+    }
+
+    handleContextDeleted(e) {
+        this.contexts = this.contexts.filter(contextId => contextId !== e.detail.contextId);
+        if (this.contexts.length > 0) {
+            this.selectedContext = this.contexts[0];
+        } else {
+            this.selectedContext = null;
+        }
+    }
+
     static styles = css`
         .context-list-container {
             display: grid;
@@ -144,7 +157,9 @@ class ContextList extends LitElement {
                     <button class="new-context-button" @click=${this.handleNewContext}>New Context</button>
                 </div>
                 <div class="chat-app-container">
-                    <chat-app .contextId=${this.selectedContext}></chat-app>
+                    <chat-app .contextId=${this.selectedContext}
+                        @context-deleted=${this.handleContextDeleted}
+                    ></chat-app>
                 </div>
             </div>
         `;
