@@ -3,6 +3,7 @@ package tools
 import (
 	"encoding/json"
 	"github.com/mwildt/progoter/request"
+	"strings"
 )
 
 type ToolError string
@@ -32,6 +33,24 @@ func successResponse(message string) ([]byte, error) {
 	return json.Marshal(status)
 }
 
+type FileExclusion string
+
+func (e FileExclusion) Match(path string) bool {
+	//TODO: Hier wäre mal eine richtiger parser einzusetzen.
+	return strings.HasPrefix(path, string(e))
+}
+
+type FileExclusions []FileExclusion
+
+func (e FileExclusions) Match(path string) bool {
+	for _, ex := range e {
+		if ex.Match(path) {
+			return true
+		}
+	}
+	return false
+}
+
 // GetTools liefert die Liste der verfügbaren Tools
 func GetTools() []request.Tool {
 	return []request.Tool{
@@ -42,9 +61,11 @@ func GetTools() []request.Tool {
 		ReplaceFileLinesTool{}.GetTool(),
 		EditFileTool{}.GetTool(),
 		//ReplaceFileContentTool{}.GetTool(),
+		SearchInFilesTool{}.GetTool(),
 		GitDoTool{}.GetTool(),
 		GitDiffTool{}.GetTool(),
 		StopProcessTool{}.GetTool(),
 		GolangTool{}.GetTool(),
+		SearchInFilesTool{}.GetTool(),
 	}
 }

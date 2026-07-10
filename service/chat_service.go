@@ -258,6 +258,10 @@ func (cs *ChatService) callTool(ctx context.Context, chatContext *ChatContext, c
 		return tools.ReplaceFileLinesTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else if call.Function.Name == "golang" {
 		return tools.GolangTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
+	} else if call.Function.Name == "search_in_files" {
+		return tools.SearchInFilesTool{
+			Exclusions: tools.FileExclusions{".idea/", ".git/"},
+		}.Execute(chatContext.BasePath, call.Function.Arguments)
 	} else {
 		return nil, errors.New("tool nicht gefunden")
 	}

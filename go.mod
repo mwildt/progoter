@@ -1,3 +1,3 @@
 module github.com/mwildt/progoter
 
-go 1.24
+go 1.26
