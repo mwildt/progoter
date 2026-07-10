@@ -230,6 +230,11 @@ type CreateContextRequestDTO struct {
 	BasePath string `json:"basePath"`
 }
 
+type ContextResponseDTO struct {
+	ID       string `json:"id"`
+	BasePath string `json:"basePath"`
+}
+
 // PostCreateContextHandler erstellt einen neuen Chat-Kontext mit der gegebenen ID und einem Arbeitsverzeichnis.
 func (rc *RESTController) PostCreateContextHandler(w http.ResponseWriter, r *http.Request) {
 	var requestDTO CreateContextRequestDTO
@@ -247,14 +252,28 @@ func (rc *RESTController) PostCreateContextHandler(w http.ResponseWriter, r *htt
 	// Erstelle den neuen Kontext
 	chatContext := rc.contextManager.CreateContext(requestDTO.ID, requestDTO.BasePath)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"id": chatContext.BasePath})
+	json.NewEncoder(w).Encode(ContextResponseDTO{
+		ID:       requestDTO.ID,
+		BasePath: chatContext.BasePath,
+	})
 }
 
-// GetContextsHandler gibt eine Liste aller verfügbaren Kontext-IDs zurück.
+// GetContextsHandler gibt eine Liste aller verfügbaren Kontexte zurück.
 func (rc *RESTController) GetContextsHandler(w http.ResponseWriter, r *http.Request) {
 	contexts := rc.contextManager.ListContexts()
+	contextResponses := make([]ContextResponseDTO, 0, len(contexts))
+
+	for _, id := range contexts {
+		if chatContext, exists := rc.contextManager.GetContext(id); exists {
+			contextResponses = append(contextResponses, ContextResponseDTO{
+				ID:       id,
+				BasePath: chatContext.BasePath,
+			})
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(contexts)
+	json.NewEncoder(w).Encode(contextResponses)
 }
 
 // GetDirectoryStructureHandler gibt die Verzeichnisstruktur des Projekts zurück.

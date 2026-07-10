@@ -9,7 +9,7 @@ class ChatApp extends LitElement {
         messages: {type: Array},
         processing: {},
         eventSource: {type: Object},
-        contextId: {type: String}
+        context: {type: Object}
     };
 
     static styles = css`
@@ -176,20 +176,19 @@ class ChatApp extends LitElement {
 
     async deleteContext() {
         try {
-            const response = await fetch(`http://localhost:8080/chat/${this.contextId}`, {
+            fetch(`http://localhost:8080/chat/${this.context.id}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-            });
-            if (!response.ok) {
-                throw new Error('Failed to delete context');
-            }
-            this.dispatchEvent(new CustomEvent('context-deleted', {
-                detail: { contextId: this.contextId },
-                bubbles: true,
-                composed: true
-            }));
+            })
+                .then(r=> r.json())
+                .then(context => this.dispatchEvent(new CustomEvent('context-deleted', {
+                    detail: context,
+                    bubbles: true,
+                    composed: true
+                })))
+                .catch(error => console.error('Error deleting context:', error));
         } catch (error) {
             console.error('Error deleting context:', error);
         }
@@ -218,7 +217,6 @@ class ChatApp extends LitElement {
         });
 
         this.eventSource.addEventListener("chat-message", (event) => {
-            console.info(event.data)
             const message = JSON.parse(event.data);
 
             let lastMessage = this.messages.length - 1;
@@ -261,7 +259,7 @@ class ChatApp extends LitElement {
             <div class="chat-container mode-${initial ? 'init' : 'chat'}">
                 ${initial ? undefined : html`
                     <div class="header">
-                        <div class="context-title">Context: ${this.contextId}</div>
+                        <div class="context-title">Context: ${this.context.id}</div>
                         <div class="header-actions">
                             <atomic-button label="Cancel" ?disabled=${!this.processing} @button-click=${this.cancelChat}></atomic-button>
                             <atomic-button label="Compact" ?disabled=${this.processing} @button-click=${this.compactChat}></atomic-button>

@@ -36,26 +36,20 @@ class NewContextForm extends LitElement {
         const basePath = this.basePath;
         
         if (contextId) {
-            try {
-                const response = await fetch('/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({id: contextId, basePath: basePath || ''})
-                });
-                if (response.ok) {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({id: contextId, basePath: basePath || ''})
+            }).then(r => r.json())
+                .then(context => {
                     this.dispatchEvent(new CustomEvent('context-created', {
-                        detail: { contextId: contextId, basePath: basePath || '' },
+                        detail: context,
                         bubbles: true,
                         composed: true
                     }));
-                } else {
-                    console.error('Failed to create context');
-                }
-            } catch (error) {
-                console.error('Error creating context:', error);
-            }
+                }).catch(error => console.error('Failed to create context', error))
         }
     }
 
@@ -120,7 +114,7 @@ class ContextList extends LitElement {
     constructor() {
         super();
         this.contexts = [];
-        this.selectedContext = 'default';
+        this.selectedContext = undefined;
         this.showNewContextForm = false;
     }
 
@@ -134,7 +128,7 @@ class ContextList extends LitElement {
     }
 
     handleContextDeleted(e) {
-        this.contexts = this.contexts.filter(contextId => contextId !== e.detail.contextId);
+        this.contexts = this.contexts.filter(context => context.id !== e.detail.contextId);
         if (this.contexts.length > 0) {
             this.selectedContext = this.contexts[0];
         } else {
@@ -144,24 +138,9 @@ class ContextList extends LitElement {
     }
 
     async handleContextCreated(e) {
-        try {
-            const response = await fetch('/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({id: e.detail.contextId, basePath: e.detail.basePath || ''})
-            });
-            if (response.ok) {
-                await this.fetchContexts();
-                this.selectedContext = e.detail.contextId;
-                this.showNewContextForm = false;
-            } else {
-                console.error('Failed to create context');
-            }
-        } catch (error) {
-            console.error('Error creating context:', error);
-        }
+        await this.fetchContexts()
+        this.selectedContext = e.detail;
+        this.showNewContextForm = false;
     }
 
     handleCancelNewContext() {
@@ -286,8 +265,8 @@ class ContextList extends LitElement {
         }
     }
 
-    handleContextClick(contextId) {
-        this.selectedContext = contextId;
+    handleContextClick(context) {
+        this.selectedContext = context;
         this.showNewContextForm = false;
     }
 
@@ -301,13 +280,14 @@ class ContextList extends LitElement {
                 <div class="context-list">
                     <h3>Contexts</h3>
                     <div>
-                        ${this.contexts.map(contextId => html`
+                        ${this.contexts.map(context => html`
                             <div
-                                    class="context-item ${this.selectedContext === contextId ? 'selected' : ''}"
-                                    @click=${() => this.handleContextClick(contextId)}
+                                    class="context-item ${this.selectedContext.id === context.id ? 'selected' : ''}"
+                                    @click=${() => this.handleContextClick(context)}
                             >
                                 <span class="context-item-icon">📄</span>
-                                <span>${contextId}</span>
+                                <span>${context.id}</span>
+                                ${context.basePath ? html`<span class="context-base-path"> (${context.basePath})</span>` : ''}
                             </div>
                         `)}
                     </div>
@@ -323,7 +303,7 @@ class ContextList extends LitElement {
                         ></new-context-form>
                     ` : html`
                         ${this.selectedContext ? html`
-                            <chat-app .contextId=${this.selectedContext}
+                            <chat-app .context=${this.selectedContext}
                                 @context-deleted=${this.handleContextDeleted}
                             ></chat-app>
                         ` : html`
