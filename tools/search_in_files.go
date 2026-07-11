@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"github.com/mwildt/progoter/request"
+	"github.com/mwildt/progoter/utils/glob"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -17,6 +18,7 @@ type SearchInFilesTool struct {
 
 type SearchInFilesArgs struct {
 	Pattern string `json:"pattern,omitempty"`
+	Path    string `json:"path,omitempty"`
 }
 
 func (t SearchInFilesTool) GetTool() request.Tool {
@@ -32,6 +34,11 @@ func (t SearchInFilesTool) GetTool() request.Tool {
 						Type:        "string",
 						Name:        "pattern",
 						Description: "Das Wort oder Muster, nach dem gesucht werden soll. Hier ist Regex Möglich!",
+					},
+					"path": {
+						Type:        "string",
+						Name:        "path",
+						Description: "Glob Ausdruk, auf welchen Dateien geucht weeden sollen",
 					},
 				},
 				Required: []string{"pattern"},
@@ -102,6 +109,8 @@ func (t SearchInFilesTool) Execute(basePath string, args string) ([]byte, error)
 		}
 	}
 
+	glob := glob.NewGlob(searchArgs.Path)
+
 	var results []SearchResult
 
 	err = filepath.Walk(finalPath, func(filePath string, info os.FileInfo, err error) error {
@@ -115,6 +124,12 @@ func (t SearchInFilesTool) Execute(basePath string, args string) ([]byte, error)
 		if t.Exclusions.Match(relPath) {
 			return filepath.SkipDir
 		}
+
+		// wenn geglobbet wird und kein Match, skip
+		if searchArgs.Path != "" && !glob.Match(relPath) {
+			return nil
+		}
+
 		if match, matches, err := t.handleFile(filePath, lineMatcher); err != nil {
 			return err
 		} else if match {

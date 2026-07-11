@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/mwildt/progoter/request"
+	"github.com/mwildt/progoter/utils/glob"
 	"log/slog"
 	"os"
 	"path"
@@ -55,11 +56,7 @@ func (t ListFilesTool) Execute(basePath string, args string) ([]byte, error) {
 
 	var matches []string
 
-	pattern := listFilesArgs.Pattern
-	// If no pattern is provided, use "*" to match all files
-	if pattern == "" {
-		pattern = "*"
-	}
+	glob := glob.NewGlob(listFilesArgs.Pattern)
 
 	// Walk through the directory tree
 	err = filepath.Walk(finalPath, func(path string, info os.FileInfo, err error) error {
@@ -87,18 +84,14 @@ func (t ListFilesTool) Execute(basePath string, args string) ([]byte, error) {
 			}
 		}
 
-		// Check if the path matches the pattern
-		matched, err := filepath.Match(pattern, relPath)
-		if err != nil {
-			return err
+		if listFilesArgs.Pattern != "" && !glob.Match(relPath) {
+			return nil
 		}
 
-		if matched {
-			if info.IsDir() {
-				matches = append(matches, relPath+"/")
-			} else {
-				matches = append(matches, relPath)
-			}
+		if info.IsDir() {
+			matches = append(matches, relPath+"/")
+		} else {
+			matches = append(matches, relPath)
 		}
 
 		return nil
