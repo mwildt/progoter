@@ -1,23 +1,22 @@
 package tools
 
 import (
+	"github.com/mwildt/progoter/chatapi"
 	"os"
-
-	"github.com/mwildt/progoter/request"
 )
 
 // StopProcessTool implementiert das ToolHandler-Interface für stop_process
 type StopProcessTool struct{}
 
-func (t StopProcessTool) GetTool() request.Tool {
-	return request.Tool{
+func (t StopProcessTool) GetTool() chatapi.Tool {
+	return chatapi.Tool{
 		Type: "function",
-		Function: request.ToolFunction{
+		Function: chatapi.ToolFunction{
 			Name:        "stop_process",
 			Description: "Beendet den laufenden Prozess.",
-			Parameters: request.FunctionParams{
+			Parameters: chatapi.FunctionParams{
 				Type:       "object",
-				Properties: map[string]request.ArgumentProperty{},
+				Properties: map[string]chatapi.ArgumentProperty{},
 				Required:   []string{},
 			},
 		},

@@ -2,7 +2,7 @@ package tools
 
 import (
 	"encoding/json"
-	"github.com/mwildt/progoter/request"
+	"github.com/mwildt/progoter/chatapi"
 	"os"
 	"path"
 	"path/filepath"
@@ -23,15 +23,15 @@ type ReplaceFileContentArgs struct {
 type EditFileTool struct {
 }
 
-func (t EditFileTool) GetTool() request.Tool {
-	return request.Tool{
+func (t EditFileTool) GetTool() chatapi.Tool {
+	return chatapi.Tool{
 		Type: "function",
-		Function: request.ToolFunction{
+		Function: chatapi.ToolFunction{
 			Name:        "edit_file",
 			Description: "Ersetzt einen Teil des Inhalts einer Datei. Der zu ersetzende Teil muss byte-genau angegeben werden.",
-			Parameters: request.FunctionParams{
+			Parameters: chatapi.FunctionParams{
 				Type: "object",
-				Properties: map[string]request.ArgumentProperty{
+				Properties: map[string]chatapi.ArgumentProperty{
 					"path": {
 						Type:        "string",
 						Name:        "path",

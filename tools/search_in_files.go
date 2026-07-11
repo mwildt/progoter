@@ -4,7 +4,7 @@ package tools
 import (
 	"bufio"
 	"encoding/json"
-	"github.com/mwildt/progoter/request"
+	"github.com/mwildt/progoter/chatapi"
 	"github.com/mwildt/progoter/utils/glob"
 	"log/slog"
 	"os"
@@ -21,15 +21,15 @@ type SearchInFilesArgs struct {
 	Path    string `json:"path,omitempty"`
 }
 
-func (t SearchInFilesTool) GetTool() request.Tool {
-	return request.Tool{
+func (t SearchInFilesTool) GetTool() chatapi.Tool {
+	return chatapi.Tool{
 		Type: "function",
-		Function: request.ToolFunction{
+		Function: chatapi.ToolFunction{
 			Name:        "search_in_files",
 			Description: "Durchsucht alle Dateien im angegebenen Pfad nach einem Wort oder Regex-Muster.",
-			Parameters: request.FunctionParams{
+			Parameters: chatapi.FunctionParams{
 				Type: "object",
-				Properties: map[string]request.ArgumentProperty{
+				Properties: map[string]chatapi.ArgumentProperty{
 					"pattern": {
 						Type:        "string",
 						Name:        "pattern",

@@ -3,7 +3,7 @@ package tools
 import (
 	"bytes"
 	"fmt"
-	"github.com/mwildt/progoter/request"
+	"github.com/mwildt/progoter/chatapi"
 	"io"
 	"os"
 	"os/exec"
@@ -12,15 +12,15 @@ import (
 // CheckTool implementiert das ToolHandler-Interface für check
 type CheckTool struct{}
 
-func (t CheckTool) GetTool() request.Tool {
-	return request.Tool{
+func (t CheckTool) GetTool() chatapi.Tool {
+	return chatapi.Tool{
 		Type: "function",
-		Function: request.ToolFunction{
+		Function: chatapi.ToolFunction{
 			Name:        "check",
 			Description: "Startet einen Podman-Container mit dem letzten Go-Image und versucht, alle main.go-Dateien zu bauen.",
-			Parameters: request.FunctionParams{
+			Parameters: chatapi.FunctionParams{
 				Type:       "object",
-				Properties: map[string]request.ArgumentProperty{},
+				Properties: map[string]chatapi.ArgumentProperty{},
 				Required:   []string{},
 			},
 		},

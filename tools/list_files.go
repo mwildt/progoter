@@ -3,7 +3,7 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/mwildt/progoter/request"
+	"github.com/mwildt/progoter/chatapi"
 	"github.com/mwildt/progoter/utils/glob"
 	"log/slog"
 	"os"
@@ -20,15 +20,15 @@ type ListFilesArgs struct {
 	Pattern string `json:"pattern,omitempty"`
 }
 
-func (t ListFilesTool) GetTool() request.Tool {
-	return request.Tool{
+func (t ListFilesTool) GetTool() chatapi.Tool {
+	return chatapi.Tool{
 		Type: "function",
-		Function: request.ToolFunction{
+		Function: chatapi.ToolFunction{
 			Name:        "list_files",
 			Description: "Gibt eine Liste mit allen Dateien im Projekt zurück, die einem Glob-Ausdruck entsprechen. Denke an WildCards (*) beim aufruf. ",
-			Parameters: request.FunctionParams{
+			Parameters: chatapi.FunctionParams{
 				Type: "object",
-				Properties: map[string]request.ArgumentProperty{
+				Properties: map[string]chatapi.ArgumentProperty{
 					"pattern": {
 						Type:        "string",
 						Name:        "pattern",

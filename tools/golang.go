@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/mwildt/progoter/request"
+	"github.com/mwildt/progoter/chatapi"
 	"io"
 	"os"
 	"os/exec"
@@ -13,19 +13,19 @@ import (
 // GolangTool implementiert das ToolHandler-Interface für golang
 type GolangTool struct{}
 
-func (t GolangTool) GetTool() request.Tool {
-	return request.Tool{
+func (t GolangTool) GetTool() chatapi.Tool {
+	return chatapi.Tool{
 		Type: "function",
-		Function: request.ToolFunction{
+		Function: chatapi.ToolFunction{
 			Name:        "golang",
 			Description: "Führt einen beliebigen Go-Befehl in einem Podman-Container aus.",
-			Parameters: request.FunctionParams{
+			Parameters: chatapi.FunctionParams{
 				Type: "object",
-				Properties: map[string]request.ArgumentProperty{
+				Properties: map[string]chatapi.ArgumentProperty{
 					"command": {
 						Type:        "array",
 						Description: "Die Argumente für den Go-Befehl, z. B. ['test', './...'] oder ['run', 'main.go'].",
-						Items: &request.ArgumentProperty{
+						Items: &chatapi.ArgumentProperty{
 							Type: "string",
 						},
 					},

@@ -1,8 +1,10 @@
 package tools
 
-import "github.com/mwildt/progoter/request"
+import (
+	"github.com/mwildt/progoter/chatapi"
+)
 
-type ToolDefinition request.Tool
+type ToolDefinition chatapi.Tool
 
 // ToolHandler ist das Interface, das alle Tools implementieren müssen.
 type ToolHandler interface {

@@ -2,7 +2,7 @@ package tools
 
 import (
 	"encoding/json"
-	"github.com/mwildt/progoter/request"
+	"github.com/mwildt/progoter/chatapi"
 	"strings"
 )
 
@@ -52,8 +52,8 @@ func (e FileExclusions) Match(path string) bool {
 }
 
 // GetTools liefert die Liste der verfügbaren Tools
-func GetTools() []request.Tool {
-	return []request.Tool{
+func GetTools() []chatapi.Tool {
+	return []chatapi.Tool{
 		WriteFileTool{}.GetTool(),
 		ListFilesTool{}.GetTool(),
 		ReadFileTool{}.GetTool(),

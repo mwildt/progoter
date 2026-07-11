@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/mwildt/progoter/chatapi"
 	"os/exec"
-
-	"github.com/mwildt/progoter/request"
 )
 
 // GitDoArgs enthält die Argumente für das git_do Tool
@@ -17,15 +16,15 @@ type GitDoArgs struct {
 // GitDoTool implementiert das ToolHandler-Interface für git_do
 type GitDoTool struct{}
 
-func (t GitDoTool) GetTool() request.Tool {
-	return request.Tool{
+func (t GitDoTool) GetTool() chatapi.Tool {
+	return chatapi.Tool{
 		Type: "function",
-		Function: request.ToolFunction{
+		Function: chatapi.ToolFunction{
 			Name:        "git_do",
 			Description: "Fügt den aktuellen Stand zu Git hinzu, commited und pusht nach origin",
-			Parameters: request.FunctionParams{
+			Parameters: chatapi.FunctionParams{
 				Type: "object",
-				Properties: map[string]request.ArgumentProperty{
+				Properties: map[string]chatapi.ArgumentProperty{
 					"commit_message": {
 						Type:        "string",
 						Name:        "commit_message",

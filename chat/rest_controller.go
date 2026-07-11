@@ -1,11 +1,10 @@
-package service
+package chat
 
 import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"github.com/mwildt/progoter/request"
 	"log/slog"
 	"net/http"
 	"os"
@@ -83,7 +82,7 @@ func (rc *RESTController) PostMessageHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Füge die Nachricht zum Chat-Kontext hinzu
-	message := &request.Message{
+	message := &Message{
 		Role:    "user",
 		Content: messageRequest.Message,
 	}
@@ -146,7 +145,7 @@ func (rc *RESTController) GetContextHandler(w http.ResponseWriter, r *http.Reque
 	sub := chatContext.Stream()
 	for event := range sub {
 		switch event.(type) {
-		case *request.Message:
+		case *Message:
 			data, _ := json.Marshal(event)
 			//slog.Default().With("logger", "RESTController", "trace", trace).
 			fmt.Fprintf(w, "id: %d\n", time.Now().UnixMicro())

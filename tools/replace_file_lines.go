@@ -3,12 +3,11 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/mwildt/progoter/chatapi"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
-
-	"github.com/mwildt/progoter/request"
 )
 
 // ReplaceFileLinesArgs enthält die Argumente für das replace_file_lines Tool
@@ -22,15 +21,15 @@ type ReplaceFileLinesArgs struct {
 // ReplaceFileLinesTool implementiert das ToolHandler-Interface für replace_file_lines
 type ReplaceFileLinesTool struct{}
 
-func (t ReplaceFileLinesTool) GetTool() request.Tool {
-	return request.Tool{
+func (t ReplaceFileLinesTool) GetTool() chatapi.Tool {
+	return chatapi.Tool{
 		Type: "function",
-		Function: request.ToolFunction{
+		Function: chatapi.ToolFunction{
 			Name:        "replace_file_lines",
 			Description: "Ersetzt einen Bereich von Zeilen in einer Datei. ",
-			Parameters: request.FunctionParams{
+			Parameters: chatapi.FunctionParams{
 				Type: "object",
-				Properties: map[string]request.ArgumentProperty{
+				Properties: map[string]chatapi.ArgumentProperty{
 					"path": {
 						Type:        "string",
 						Name:        "path",

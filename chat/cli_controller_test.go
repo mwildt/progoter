@@ -1,8 +1,7 @@
-package service
+package chat
 
 import (
 	"testing"
-	"github.com/mwildt/progoter/request"
 )
 
 func TestClearContext(t *testing.T) {
@@ -10,11 +9,11 @@ func TestClearContext(t *testing.T) {
 	cc := NewCLIController("test-api-key")
 
 	// Add some messages to the context
-	cc.chatContext.AddMessage(&request.Message{
+	cc.chatContext.AddMessage(&Message{
 		Role:    "user",
 		Content: "Hello, world!",
 	})
-	cc.chatContext.AddMessage(&request.Message{
+	cc.chatContext.AddMessage(&Message{
 		Role:    "assistant",
 		Content: "Hi there!",
 	})

@@ -2,11 +2,10 @@ package tools
 
 import (
 	"encoding/json"
+	"github.com/mwildt/progoter/chatapi"
 	"os"
 	"path"
 	"path/filepath"
-
-	"github.com/mwildt/progoter/request"
 )
 
 // ReadFileArgs enthält die Argumente für das read_file Tool
@@ -17,15 +16,15 @@ type ReadFileArgs struct {
 // ReadFileTool implementiert das ToolHandler-Interface für read_file
 type ReadFileTool struct{}
 
-func (t ReadFileTool) GetTool() request.Tool {
-	return request.Tool{
+func (t ReadFileTool) GetTool() chatapi.Tool {
+	return chatapi.Tool{
 		Type: "function",
-		Function: request.ToolFunction{
+		Function: chatapi.ToolFunction{
 			Name:        "read_file",
 			Description: "Liest den Inhalt einer Datei",
-			Parameters: request.FunctionParams{
+			Parameters: chatapi.FunctionParams{
 				Type: "object",
-				Properties: map[string]request.ArgumentProperty{
+				Properties: map[string]chatapi.ArgumentProperty{
 					"path": {
 						Type:        "string",
 						Name:        "path",

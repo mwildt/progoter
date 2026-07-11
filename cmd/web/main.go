@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"github.com/mwildt/progoter/service"
+	"github.com/mwildt/progoter/chat"
 	"log/slog"
 	"net/http"
 	"os"
@@ -19,7 +19,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	restController := service.NewRESTController(apiKey)
+	restController := chat.NewRESTController(apiKey)
 
 	mux := http.NewServeMux()
 	restController.SetupRoutes(mux)

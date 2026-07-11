@@ -1,11 +1,6 @@
-package response
+package chatapi
 
-import "github.com/mwildt/progoter/request"
-
-type ToolCallChoice request.ToolCallChoice
-type Usage request.Usage
-
-type ChatCompletion struct {
+type ChatCompletionResponse struct {
 	ID      string   `json:"id"`
 	Created int64    `json:"created"`
 	Model   string   `json:"model"`
@@ -14,8 +9,10 @@ type ChatCompletion struct {
 	Choices []Choice `json:"choices"`
 }
 
-type PromptDetails struct {
-	CachedTokens int `json:"cached_tokens"`
+type Usage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
 }
 
 type Choice struct {
@@ -46,8 +43,12 @@ type CompletionChunkChoice struct {
 }
 
 type Delta struct {
-	Role         string                   `json:"role"`
-	Content      interface{}              `json:"content"`
-	ToolCalls    []request.ToolCallChoice `json:"tool_calls"`
-	FinishReason string                   `json:"finish_reason"`
+	Role         string           `json:"role"`
+	Content      interface{}      `json:"content"`
+	ToolCalls    []ToolCallChoice `json:"tool_calls"`
+	FinishReason string           `json:"finish_reason"`
+}
+
+type PromptDetails struct {
+	CachedTokens int `json:"cached_tokens"`
 }

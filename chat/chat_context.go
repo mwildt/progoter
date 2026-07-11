@@ -1,4 +1,4 @@
-package service
+package chat
 
 import (
 	"context"
@@ -8,8 +8,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/mwildt/progoter/request"
 )
 
 type StateEvent int
@@ -66,7 +64,7 @@ func (p *PubSub[T]) Broadcast(msg T) {
 // ChatContext represents a collection of messages in a chat.
 type ChatContext struct {
 	BasePath string
-	Messages []*request.Message `json:"messages"`
+	Messages []*Message `json:"messages"`
 	cancel   context.CancelFunc
 	pubSub   *PubSub[any]
 	mu       sync.Mutex
@@ -102,7 +100,7 @@ func NewChatContext(basePath string) *ChatContext {
 
 	return &ChatContext{
 		BasePath: basePath,
-		Messages: []*request.Message{
+		Messages: []*Message{
 			{Role: "system", Content: systemPrompt},
 		},
 		pubSub: NewPubSub[any](),
@@ -110,7 +108,7 @@ func NewChatContext(basePath string) *ChatContext {
 }
 
 // AddMessage adds a message to the chat context.
-func (cc *ChatContext) AddMessage(message *request.Message) {
+func (cc *ChatContext) AddMessage(message *Message) {
 	slog.Default().Info("ChatContext::AddMessage", "role", message.Role, "content", message.Content)
 	//cc.mu.Lock()
 	//defer cc.mu.Unlock()
@@ -150,18 +148,18 @@ func (cc *ChatContext) Cancel() {
 	}
 }
 
-func (cc *ChatContext) addMessage(message *request.Message) {
+func (cc *ChatContext) addMessage(message *Message) {
 	if len(cc.Messages) == 0 {
-		cc.Messages = append(cc.Messages, request.FromMessage(message))
+		cc.Messages = append(cc.Messages, FromMessage(message))
 	} else if last := cc.Messages[len(cc.Messages)-1]; last.HasRole(message.Role) {
 		last.Join(message)
 	} else {
-		cc.Messages = append(cc.Messages, request.FromMessage(message))
+		cc.Messages = append(cc.Messages, FromMessage(message))
 	}
 }
 
 // AddMessages adds multiple messages to the chat context.
-func (cc *ChatContext) AddMessages(messages []*request.Message) {
+func (cc *ChatContext) AddMessages(messages []*Message) {
 	slog.Default().Info("ChatContext::AddMessages")
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
@@ -198,7 +196,7 @@ func (cc *ChatContext) Broadcast(msg any) {
 }
 
 // GetMessages returns all messages in the chat context.
-func (cc *ChatContext) GetMessages() []*request.Message {
+func (cc *ChatContext) GetMessages() []*Message {
 	return cc.Messages
 }
 
@@ -260,7 +258,7 @@ func (cc *ChatContext) Compcat(service *ChatService) error {
 	// Create a new compaction context with messages 1:n
 	compactionContext := &ChatContext{
 		BasePath: cc.BasePath,
-		Messages: []*request.Message{},
+		Messages: []*Message{},
 		pubSub:   NewPubSub[any](),
 	}
 
@@ -272,20 +270,20 @@ func (cc *ChatContext) Compcat(service *ChatService) error {
 			lastTotalUsage += msg.Usage.TotalTokens
 		}
 		if lastTotalUsage < compactThreshold {
-			compactionContext.AddMessage(request.FromMessage(msg))
+			compactionContext.AddMessage(FromMessage(msg))
 			messageRangeMange += 1
 		} else {
 			break
 		}
 	}
 
-	compactionContext.addMessage(&request.Message{
+	compactionContext.addMessage(&Message{
 		Role:    "user",
 		Content: prompt,
 	})
 
 	// Perform compaction on the new context
-	summary := &request.Message{
+	summary := &Message{
 		Role: "user",
 	}
 	_, err = service.CompleteWithHandler(ctx, compactionContext, summary)
@@ -293,7 +291,7 @@ func (cc *ChatContext) Compcat(service *ChatService) error {
 		return fmt.Errorf("Fehler beim Kompaktieren: %v", err)
 	}
 
-	newMessages := append([]*request.Message{}, cc.Messages[1])           // alter system promt
+	newMessages := append([]*Message{}, cc.Messages[1])                   // alter system promt
 	newMessages = append(newMessages, summary)                            // zusammenfassung
 	newMessages = append(newMessages, cc.Messages[messageRangeMange:]...) // weitere nachrichten
 

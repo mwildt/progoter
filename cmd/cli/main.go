@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"github.com/mwildt/progoter/service"
+	"github.com/mwildt/progoter/chat"
 	"log/slog"
 	"os"
 	"strings"
@@ -19,7 +19,7 @@ func main() {
 	}
 
 	// Starte den CLI-Controller
-	cliController := service.NewCLIController(apiKey)
+	cliController := chat.NewCLIController(apiKey)
 	cliController.StartChat()
 }
 

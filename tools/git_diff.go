@@ -3,23 +3,22 @@ package tools
 import (
 	"bytes"
 	"fmt"
+	"github.com/mwildt/progoter/chatapi"
 	"os/exec"
-
-	"github.com/mwildt/progoter/request"
 )
 
 // GitDiffTool implementiert das ToolHandler-Interface für git_diff
 type GitDiffTool struct{}
 
-func (t GitDiffTool) GetTool() request.Tool {
-	return request.Tool{
+func (t GitDiffTool) GetTool() chatapi.Tool {
+	return chatapi.Tool{
 		Type: "function",
-		Function: request.ToolFunction{
+		Function: chatapi.ToolFunction{
 			Name:        "git_diff",
 			Description: "Zeigt die Änderungen seit dem letzten Commit an",
-			Parameters: request.FunctionParams{
+			Parameters: chatapi.FunctionParams{
 				Type:       "object",
-				Properties: map[string]request.ArgumentProperty{},
+				Properties: map[string]chatapi.ArgumentProperty{},
 				Required:   []string{},
 			},
 		},

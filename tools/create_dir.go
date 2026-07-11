@@ -2,11 +2,10 @@ package tools
 
 import (
 	"encoding/json"
+	"github.com/mwildt/progoter/chatapi"
 	"os"
 	"path"
 	"path/filepath"
-
-	"github.com/mwildt/progoter/request"
 )
 
 // CreateDirArgs enthält die Argumente für das create_dir Tool
@@ -17,15 +16,15 @@ type CreateDirArgs struct {
 // CreateDirTool implementiert das ToolHandler-Interface für create_dir
 type CreateDirTool struct{}
 
-func (t CreateDirTool) GetTool() request.Tool {
-	return request.Tool{
+func (t CreateDirTool) GetTool() chatapi.Tool {
+	return chatapi.Tool{
 		Type: "function",
-		Function: request.ToolFunction{
+		Function: chatapi.ToolFunction{
 			Name:        "create_dir",
 			Description: "Erstellt ein neues Verzeichnis",
-			Parameters: request.FunctionParams{
+			Parameters: chatapi.FunctionParams{
 				Type: "object",
-				Properties: map[string]request.ArgumentProperty{
+				Properties: map[string]chatapi.ArgumentProperty{
 					"path": {
 						Type:        "string",
 						Name:        "path",

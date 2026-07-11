@@ -2,11 +2,10 @@ package tools
 
 import (
 	"encoding/json"
+	"github.com/mwildt/progoter/chatapi"
 	"os"
 	"path"
 	"path/filepath"
-
-	"github.com/mwildt/progoter/request"
 )
 
 // WriteFileArgs enthält die Argumente für das write_file Tool
@@ -18,15 +17,15 @@ type WriteFileArgs struct {
 // WriteFileTool implementiert das ToolHandler-Interface für write_file
 type WriteFileTool struct{}
 
-func (t WriteFileTool) GetTool() request.Tool {
-	return request.Tool{
+func (t WriteFileTool) GetTool() chatapi.Tool {
+	return chatapi.Tool{
 		Type: "function",
-		Function: request.ToolFunction{
+		Function: chatapi.ToolFunction{
 			Name:        "write_file",
 			Description: "Schreibt den Inhalt in eine Datei oder erstellt eine neue Datei",
-			Parameters: request.FunctionParams{
+			Parameters: chatapi.FunctionParams{
 				Type: "object",
-				Properties: map[string]request.ArgumentProperty{
+				Properties: map[string]chatapi.ArgumentProperty{
 					"path": {
 						Type:        "string",
 						Name:        "path",

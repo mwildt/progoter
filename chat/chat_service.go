@@ -1,4 +1,4 @@
-package service
+package chat
 
 import (
 	"bufio"
@@ -6,10 +6,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/mwildt/progoter/chatapi"
+
 	// Füge die letzten 5 Nachrichten wieder hinzu
 	"fmt"
-	"github.com/mwildt/progoter/request"
-	"github.com/mwildt/progoter/response"
 	"github.com/mwildt/progoter/tools"
 	"io"
 	"log/slog"
@@ -29,11 +29,11 @@ func NewChatService(apiKey string) *ChatService {
 	}
 }
 
-func readResponse(body io.Reader, handler MessageHandler) (result *request.Message, err error) {
+func readResponse(body io.Reader, handler MessageHandler) (result *Message, err error) {
 	reader := bufio.NewReader(body)
-	result = &request.Message{}
+	result = &Message{}
 	var builder strings.Builder
-	var completition response.CompletionChunk
+	var completition chatapi.CompletionChunk
 
 	for {
 		// lesen des Response
@@ -71,18 +71,18 @@ func readResponse(body io.Reader, handler MessageHandler) (result *request.Messa
 				builder.WriteString(content)
 			}
 
-			result.Usage = request.Usage(completition.Usage)
+			result.Usage = chatapi.Usage(completition.Usage)
 
 			// tool-calls
 			if len(choice.Delta.ToolCalls) > 0 {
 				result.ToolCalls = append(result.ToolCalls, choice.Delta.ToolCalls...)
 			}
 			if nil != handler {
-				handler.Join(&request.Message{
+				handler.Join(&Message{
 					Role:      choice.Delta.Role,
 					ToolCalls: choice.Delta.ToolCalls,
 					Content:   contentPart,
-					Usage:     request.Usage(completition.Usage),
+					Usage:     chatapi.Usage(completition.Usage),
 				})
 			}
 		}
@@ -94,12 +94,12 @@ func readResponse(body io.Reader, handler MessageHandler) (result *request.Messa
 	return result, nil
 }
 
-func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*request.Message, handler MessageHandler) (*request.Message, error) {
+func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*Message, handler MessageHandler) (*Message, error) {
 
-	projected := make([]*request.ChatCompletionMessage, len(messages))
+	projected := make([]*chatapi.ChatCompletionMessage, len(messages))
 
 	for i, u := range messages {
-		projected[i] = &request.ChatCompletionMessage{
+		projected[i] = &chatapi.ChatCompletionMessage{
 			Role:       u.Role,
 			ToolCallId: u.ToolCallId,
 			ToolCalls:  u.ToolCalls,
@@ -107,7 +107,7 @@ func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*requ
 		}
 	}
 
-	jsonData, err := json.Marshal(&request.ChatCompletion{
+	jsonData, err := json.Marshal(&chatapi.ChatCompletionRequest{
 		Model:    "devstral-medium-latest",
 		Stream:   true,
 		Messages: projected,
@@ -154,17 +154,17 @@ func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*requ
 }
 
 type MessageHandler interface {
-	Join(*request.Message)
+	Join(*Message)
 }
 
-type MessageHandlerFunc func(*request.Message)
+type MessageHandlerFunc func(*Message)
 
-func (fn MessageHandlerFunc) Join(message *request.Message) {
+func (fn MessageHandlerFunc) Join(message *Message) {
 	fn(message)
 }
 
 func (cs *ChatService) Complete(ctx context.Context, chatContext *ChatContext) (*ChatContext, error) {
-	return cs.CompleteWithHandler(ctx, chatContext, MessageHandlerFunc(func(msg *request.Message) {
+	return cs.CompleteWithHandler(ctx, chatContext, MessageHandlerFunc(func(msg *Message) {
 		chatContext.addMessage(msg)
 		chatContext.Broadcast(msg)
 	}))
@@ -198,7 +198,7 @@ func (cs *ChatService) CompleteWithHandler(ctx context.Context, chatContext *Cha
 				if err != nil {
 					slog.Default().Error("Fehler beim Aufruf eines Tools", "tool", toolCall.Type, "error", err)
 				}
-				toolMessage := &request.Message{
+				toolMessage := &Message{
 					Role:       "tool",
 					ToolCallId: toolCall.Id,
 					Content:    string(callContent),
@@ -232,7 +232,7 @@ func (cs *ChatService) CompleteWithHandler(ctx context.Context, chatContext *Cha
 }
 
 // callTool ruft ein Tool auf und gibt das Ergebnis zurück.
-func (cs *ChatService) callTool(ctx context.Context, chatContext *ChatContext, call request.ToolCallChoice) ([]byte, error) {
+func (cs *ChatService) callTool(ctx context.Context, chatContext *ChatContext, call chatapi.ToolCallChoice) ([]byte, error) {
 
 	slog.Default().Info("Tool Call", "tool", call.Function.Name, "call_id", call.Id)
 
