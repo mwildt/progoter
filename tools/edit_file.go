@@ -23,8 +23,8 @@ type ReplaceFileContentArgs struct {
 type EditFileTool struct {
 }
 
-func (t EditFileTool) GetTool() chatapi.Tool {
-	return chatapi.Tool{
+func (t EditFileTool) GetTool() ToolDefinition {
+	return ToolDefinition{
 		Type: "function",
 		Function: chatapi.ToolFunction{
 			Name:        "edit_file",

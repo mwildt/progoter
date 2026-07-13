@@ -12,8 +12,8 @@ import (
 // CheckTool implementiert das ToolHandler-Interface für check
 type CheckTool struct{}
 
-func (t CheckTool) GetTool() chatapi.Tool {
-	return chatapi.Tool{
+func (t CheckTool) GetTool() ToolDefinition {
+	return ToolDefinition{
 		Type: "function",
 		Function: chatapi.ToolFunction{
 			Name:        "check",

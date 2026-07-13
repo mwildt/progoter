@@ -21,8 +21,8 @@ type ReplaceFileLinesArgs struct {
 // ReplaceFileLinesTool implementiert das ToolHandler-Interface für replace_file_lines
 type ReplaceFileLinesTool struct{}
 
-func (t ReplaceFileLinesTool) GetTool() chatapi.Tool {
-	return chatapi.Tool{
+func (t ReplaceFileLinesTool) GetTool() ToolDefinition {
+	return ToolDefinition{
 		Type: "function",
 		Function: chatapi.ToolFunction{
 			Name:        "replace_file_lines",

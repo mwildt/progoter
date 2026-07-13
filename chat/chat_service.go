@@ -18,14 +18,16 @@ import (
 )
 
 type ChatService struct {
-	apiKey string
-	client *http.Client
+	apiKey      string
+	client      *http.Client
+	toolService *tools.Service
 }
 
-func NewChatService(apiKey string) *ChatService {
+func NewChatService(apiKey string, toolCaller *tools.Service) *ChatService {
 	return &ChatService{
-		apiKey: apiKey,
-		client: &http.Client{},
+		apiKey:      apiKey,
+		client:      &http.Client{},
+		toolService: toolCaller,
 	}
 }
 
@@ -107,11 +109,16 @@ func (cs *ChatService) sendCompleteRequest(ctx context.Context, messages []*Mess
 		}
 	}
 
+	var tools []chatapi.Tool
+	for _, t := range cs.toolService.GetTools(ctx) {
+		tools = append(tools, chatapi.Tool(t))
+	}
+
 	jsonData, err := json.Marshal(&chatapi.ChatCompletionRequest{
 		Model:    "devstral-medium-latest",
 		Stream:   true,
 		Messages: projected,
-		Tools:    tools.GetTools(),
+		Tools:    tools,
 	})
 
 	if err != nil {
@@ -231,38 +238,11 @@ func (cs *ChatService) CompleteWithHandler(ctx context.Context, chatContext *Cha
 	return chatContext, nil
 }
 
-// callTool ruft ein Tool auf und gibt das Ergebnis zurück.
 func (cs *ChatService) callTool(ctx context.Context, chatContext *ChatContext, call chatapi.ToolCallChoice) ([]byte, error) {
-
-	slog.Default().Info("Tool Call", "tool", call.Function.Name, "call_id", call.Id)
-
-	if call.Function.Name == "read_file" {
-		return tools.ReadFileTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
-	} else if call.Function.Name == "edit_file" {
-		return tools.EditFileTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
-	} else if call.Function.Name == "list_files" {
-		return tools.ListFilesTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
-	} else if call.Function.Name == "write_file" {
-		return tools.WriteFileTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
-	} else if call.Function.Name == "git_do" {
-		return tools.GitDoTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
-	} else if call.Function.Name == "git_diff" {
-		return tools.GitDiffTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
-	} else if call.Function.Name == "create_dir" {
-		return tools.CreateDirTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
-	} else if call.Function.Name == "stop_process" {
-		return tools.StopProcessTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
-	} else if call.Function.Name == "check" {
-		return tools.CheckTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
-	} else if call.Function.Name == "replace_file_lines" {
-		return tools.ReplaceFileLinesTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
-	} else if call.Function.Name == "golang" {
-		return tools.GolangTool{}.Execute(chatContext.BasePath, call.Function.Arguments)
-	} else if call.Function.Name == "search_in_files" {
-		return tools.SearchInFilesTool{
-			Exclusions: tools.FileExclusions{".idea/", ".git/"},
-		}.Execute(chatContext.BasePath, call.Function.Arguments)
+	slog.Default().Info("Tool CallFunction", "tool", call.Function.Name, "call_id", call.Id)
+	if cs.toolService == nil {
+		return nil, errors.New("tool caller is nil")
 	} else {
-		return nil, errors.New("tool nicht gefunden")
+		return cs.toolService.CallFunction(ctx, chatContext.BasePath, call.Function.Name, call.Function.Arguments)
 	}
 }

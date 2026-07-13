@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/mwildt/progoter/tools"
 	"log/slog"
 	"os"
 	"strings"
@@ -18,7 +19,7 @@ type CLIController struct {
 
 func NewCLIController(apiKey string) *CLIController {
 	return &CLIController{
-		chatService: NewChatService(apiKey),
+		chatService: NewChatService(apiKey, tools.NewService(tools.AllTools())),
 		chatContext: NewChatContext("./"),
 	}
 }

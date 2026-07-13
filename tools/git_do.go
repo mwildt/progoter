@@ -16,8 +16,8 @@ type GitDoArgs struct {
 // GitDoTool implementiert das ToolHandler-Interface für git_do
 type GitDoTool struct{}
 
-func (t GitDoTool) GetTool() chatapi.Tool {
-	return chatapi.Tool{
+func (t GitDoTool) GetTool() ToolDefinition {
+	return ToolDefinition{
 		Type: "function",
 		Function: chatapi.ToolFunction{
 			Name:        "git_do",

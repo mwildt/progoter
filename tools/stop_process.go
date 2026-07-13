@@ -8,8 +8,8 @@ import (
 // StopProcessTool implementiert das ToolHandler-Interface für stop_process
 type StopProcessTool struct{}
 
-func (t StopProcessTool) GetTool() chatapi.Tool {
-	return chatapi.Tool{
+func (t StopProcessTool) GetTool() ToolDefinition {
+	return ToolDefinition{
 		Type: "function",
 		Function: chatapi.ToolFunction{
 			Name:        "stop_process",

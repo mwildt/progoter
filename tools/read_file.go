@@ -16,8 +16,8 @@ type ReadFileArgs struct {
 // ReadFileTool implementiert das ToolHandler-Interface für read_file
 type ReadFileTool struct{}
 
-func (t ReadFileTool) GetTool() chatapi.Tool {
-	return chatapi.Tool{
+func (t ReadFileTool) GetTool() ToolDefinition {
+	return ToolDefinition(chatapi.Tool{
 		Type: "function",
 		Function: chatapi.ToolFunction{
 			Name:        "read_file",
@@ -36,7 +36,7 @@ func (t ReadFileTool) GetTool() chatapi.Tool {
 				},
 			},
 		},
-	}
+	})
 }
 
 func (t ReadFileTool) Execute(basePath string, args string) ([]byte, error) {

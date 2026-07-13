@@ -16,8 +16,8 @@ type CreateDirArgs struct {
 // CreateDirTool implementiert das ToolHandler-Interface für create_dir
 type CreateDirTool struct{}
 
-func (t CreateDirTool) GetTool() chatapi.Tool {
-	return chatapi.Tool{
+func (t CreateDirTool) GetTool() ToolDefinition {
+	return ToolDefinition{
 		Type: "function",
 		Function: chatapi.ToolFunction{
 			Name:        "create_dir",

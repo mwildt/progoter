@@ -20,8 +20,8 @@ type ListFilesArgs struct {
 	Pattern string `json:"pattern,omitempty"`
 }
 
-func (t ListFilesTool) GetTool() chatapi.Tool {
-	return chatapi.Tool{
+func (t ListFilesTool) GetTool() ToolDefinition {
+	return ToolDefinition{
 		Type: "function",
 		Function: chatapi.ToolFunction{
 			Name:        "list_files",

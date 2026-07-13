@@ -17,8 +17,8 @@ type WriteFileArgs struct {
 // WriteFileTool implementiert das ToolHandler-Interface für write_file
 type WriteFileTool struct{}
 
-func (t WriteFileTool) GetTool() chatapi.Tool {
-	return chatapi.Tool{
+func (t WriteFileTool) GetTool() ToolDefinition {
+	return ToolDefinition{
 		Type: "function",
 		Function: chatapi.ToolFunction{
 			Name:        "write_file",

@@ -13,8 +13,8 @@ import (
 // GolangTool implementiert das ToolHandler-Interface für golang
 type GolangTool struct{}
 
-func (t GolangTool) GetTool() chatapi.Tool {
-	return chatapi.Tool{
+func (t GolangTool) GetTool() ToolDefinition {
+	return ToolDefinition{
 		Type: "function",
 		Function: chatapi.ToolFunction{
 			Name:        "golang",

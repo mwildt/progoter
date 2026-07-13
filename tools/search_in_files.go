@@ -21,8 +21,8 @@ type SearchInFilesArgs struct {
 	Path    string `json:"path,omitempty"`
 }
 
-func (t SearchInFilesTool) GetTool() chatapi.Tool {
-	return chatapi.Tool{
+func (t SearchInFilesTool) GetTool() ToolDefinition {
+	return ToolDefinition{
 		Type: "function",
 		Function: chatapi.ToolFunction{
 			Name:        "search_in_files",

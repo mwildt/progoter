@@ -10,8 +10,8 @@ import (
 // GitDiffTool implementiert das ToolHandler-Interface für git_diff
 type GitDiffTool struct{}
 
-func (t GitDiffTool) GetTool() chatapi.Tool {
-	return chatapi.Tool{
+func (t GitDiffTool) GetTool() ToolDefinition {
+	return ToolDefinition{
 		Type: "function",
 		Function: chatapi.ToolFunction{
 			Name:        "git_diff",

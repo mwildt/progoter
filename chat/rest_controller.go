@@ -22,10 +22,13 @@ type RESTController struct {
 	mu             sync.Mutex
 }
 
-func NewRESTController(apiKey string) *RESTController {
+func NewRESTController(
+	chatService *ChatService,
+	contextManager *ContextManager,
+) *RESTController {
 	return &RESTController{
-		chatService:    NewChatService(apiKey),
-		contextManager: NewContextManager(),
+		chatService:    chatService,
+		contextManager: contextManager,
 	}
 }
 
