@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"github.com/mwildt/progoter/chat"
+	"github.com/mwildt/progoter/chatapi"
 	"github.com/mwildt/progoter/tools"
 	"log/slog"
 	"net/http"
@@ -25,7 +26,8 @@ func main() {
 		tools.WorkspaceDir("./"),
 	)
 
-	chatService := chat.NewChatService(apiKey, toolService)
+	apiService := chatapi.NewService(apiKey)
+	chatService := chat.NewChatService(toolService, apiService)
 
 	restController := chat.NewRESTController(chatService, chat.NewContextManager())
 

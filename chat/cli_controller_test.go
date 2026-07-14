@@ -1,6 +1,7 @@
 package chat
 
 import (
+	"github.com/mwildt/progoter/chatapi"
 	"testing"
 )
 
@@ -9,11 +10,11 @@ func TestClearContext(t *testing.T) {
 	cc := NewCLIController("test-api-key")
 
 	// Add some messages to the context
-	cc.chatContext.AddMessage(&Message{
+	cc.chatContext.AddMessage(&chatapi.Message{
 		Role:    "user",
 		Content: "Hello, world!",
 	})
-	cc.chatContext.AddMessage(&Message{
+	cc.chatContext.AddMessage(&chatapi.Message{
 		Role:    "assistant",
 		Content: "Hi there!",
 	})

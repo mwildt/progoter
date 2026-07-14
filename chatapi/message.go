@@ -1,13 +1,11 @@
-package chat
-
-import "github.com/mwildt/progoter/chatapi"
+package chatapi
 
 type Message struct {
-	Role       string                   `json:"role"`
-	ToolCallId string                   `json:"tool_call_id,omitempty"`
-	ToolCalls  []chatapi.ToolCallChoice `json:"tool_calls,omitzero"`
-	Content    string                   `json:"content,omitempty"`
-	Usage      chatapi.Usage            `json:"usage,omitzero"`
+	Role       string           `json:"role"`
+	ToolCallId string           `json:"tool_call_id,omitempty"`
+	ToolCalls  []ToolCallChoice `json:"tool_calls,omitzero"`
+	Content    string           `json:"content,omitempty"`
+	Usage      Usage            `json:"usage,omitzero"`
 }
 
 func FromMessage(m *Message) *Message {

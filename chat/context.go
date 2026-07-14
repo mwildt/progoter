@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/mwildt/progoter/chatapi"
 	"log/slog"
 	"os"
 	"sync"
@@ -64,7 +65,7 @@ func (p *PubSub[T]) Broadcast(msg T) {
 // ChatContext represents a collection of messages in a chat.
 type ChatContext struct {
 	BasePath string
-	Messages []*Message `json:"messages"`
+	Messages []*chatapi.Message `json:"messages"`
 	cancel   context.CancelFunc
 	pubSub   *PubSub[any]
 	mu       sync.Mutex
@@ -100,7 +101,7 @@ func NewChatContext(basePath string) *ChatContext {
 
 	return &ChatContext{
 		BasePath: basePath,
-		Messages: []*Message{
+		Messages: []*chatapi.Message{
 			{Role: "system", Content: systemPrompt},
 		},
 		pubSub: NewPubSub[any](),
@@ -108,14 +109,14 @@ func NewChatContext(basePath string) *ChatContext {
 }
 
 // AddMessage adds a message to the chat context.
-func (cc *ChatContext) AddMessage(message *Message) {
+func (cc *ChatContext) AddMessage(message *chatapi.Message) {
 	slog.Default().Info("ChatContext::AddMessage", "role", message.Role, "content", message.Content)
 	//cc.mu.Lock()
 	//defer cc.mu.Unlock()
 	cc.Messages = append(cc.Messages, message)
 }
 
-func (cc *ChatContext) Complete(service *ChatService) error {
+func (cc *ChatContext) Complete(service *Service) error {
 	slog.Default().Info("ChatContext::Complete")
 	cc.mu.Lock()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -148,18 +149,18 @@ func (cc *ChatContext) Cancel() {
 	}
 }
 
-func (cc *ChatContext) addMessage(message *Message) {
+func (cc *ChatContext) addMessage(message *chatapi.Message) {
 	if len(cc.Messages) == 0 {
-		cc.Messages = append(cc.Messages, FromMessage(message))
+		cc.Messages = append(cc.Messages, chatapi.FromMessage(message))
 	} else if last := cc.Messages[len(cc.Messages)-1]; last.HasRole(message.Role) {
 		last.Join(message)
 	} else {
-		cc.Messages = append(cc.Messages, FromMessage(message))
+		cc.Messages = append(cc.Messages, chatapi.FromMessage(message))
 	}
 }
 
 // AddMessages adds multiple messages to the chat context.
-func (cc *ChatContext) AddMessages(messages []*Message) {
+func (cc *ChatContext) AddMessages(messages []*chatapi.Message) {
 	slog.Default().Info("ChatContext::AddMessages")
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
@@ -196,7 +197,7 @@ func (cc *ChatContext) Broadcast(msg any) {
 }
 
 // GetMessages returns all messages in the chat context.
-func (cc *ChatContext) GetMessages() []*Message {
+func (cc *ChatContext) GetMessages() []*chatapi.Message {
 	return cc.Messages
 }
 
@@ -234,7 +235,7 @@ func (cc *ChatContext) Dump() error {
 	return nil
 }
 
-func (cc *ChatContext) Compcat(service *ChatService) error {
+func (cc *ChatContext) Compcat(service *Service) error {
 
 	prompt, err := readCompcatDefaultPrompt()
 	if err != nil {
@@ -258,7 +259,7 @@ func (cc *ChatContext) Compcat(service *ChatService) error {
 	// Create a new compaction context with messages 1:n
 	compactionContext := &ChatContext{
 		BasePath: cc.BasePath,
-		Messages: []*Message{},
+		Messages: []*chatapi.Message{},
 		pubSub:   NewPubSub[any](),
 	}
 
@@ -270,20 +271,20 @@ func (cc *ChatContext) Compcat(service *ChatService) error {
 			lastTotalUsage += msg.Usage.TotalTokens
 		}
 		if lastTotalUsage < compactThreshold {
-			compactionContext.AddMessage(FromMessage(msg))
+			compactionContext.AddMessage(chatapi.FromMessage(msg))
 			messageRangeMange += 1
 		} else {
 			break
 		}
 	}
 
-	compactionContext.addMessage(&Message{
+	compactionContext.addMessage(&chatapi.Message{
 		Role:    "user",
 		Content: prompt,
 	})
 
 	// Perform compaction on the new context
-	summary := &Message{
+	summary := &chatapi.Message{
 		Role: "user",
 	}
 	_, err = service.CompleteWithHandler(ctx, compactionContext, summary)
@@ -291,7 +292,7 @@ func (cc *ChatContext) Compcat(service *ChatService) error {
 		return fmt.Errorf("Fehler beim Kompaktieren: %v", err)
 	}
 
-	newMessages := append([]*Message{}, cc.Messages[1])                   // alter system promt
+	newMessages := append([]*chatapi.Message{}, cc.Messages[1])           // alter system promt
 	newMessages = append(newMessages, summary)                            // zusammenfassung
 	newMessages = append(newMessages, cc.Messages[messageRangeMange:]...) // weitere nachrichten
 

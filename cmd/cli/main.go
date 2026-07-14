@@ -3,6 +3,8 @@ package main
 import (
 	"bufio"
 	"github.com/mwildt/progoter/chat"
+	"github.com/mwildt/progoter/chatapi"
+	"github.com/mwildt/progoter/tools"
 	"log/slog"
 	"os"
 	"strings"
@@ -18,8 +20,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	toolService := tools.NewService(
+		tools.AllTools(),
+		tools.WorkspaceDir("./"),
+	)
+
+	apiService := chatapi.NewService(apiKey)
+	chatService := chat.NewChatService(toolService, apiService)
+
 	// Starte den CLI-Controller
-	cliController := chat.NewCLIController(apiKey)
+	cliController := chat.NewCLIController(chatService)
 	cliController.StartChat()
 }
 

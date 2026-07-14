@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/mwildt/progoter/chatapi"
 	"log/slog"
 	"net/http"
 	"os"
@@ -17,13 +18,13 @@ import (
 )
 
 type RESTController struct {
-	chatService    *ChatService
+	chatService    *Service
 	contextManager *ContextManager
 	mu             sync.Mutex
 }
 
 func NewRESTController(
-	chatService *ChatService,
+	chatService *Service,
 	contextManager *ContextManager,
 ) *RESTController {
 	return &RESTController{
@@ -85,7 +86,7 @@ func (rc *RESTController) PostMessageHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	// Füge die Nachricht zum Chat-Kontext hinzu
-	message := &Message{
+	message := &chatapi.Message{
 		Role:    "user",
 		Content: messageRequest.Message,
 	}
@@ -148,7 +149,7 @@ func (rc *RESTController) GetContextHandler(w http.ResponseWriter, r *http.Reque
 	sub := chatContext.Stream()
 	for event := range sub {
 		switch event.(type) {
-		case *Message:
+		case *chatapi.Message:
 			data, _ := json.Marshal(event)
 			//slog.Default().With("logger", "RESTController", "trace", trace).
 			fmt.Fprintf(w, "id: %d\n", time.Now().UnixMicro())

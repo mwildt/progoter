@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/mwildt/progoter/tools"
+	"github.com/mwildt/progoter/chatapi"
 	"log/slog"
 	"os"
 	"strings"
@@ -13,13 +13,13 @@ import (
 )
 
 type CLIController struct {
-	chatService *ChatService
+	chatService *Service
 	chatContext *ChatContext
 }
 
-func NewCLIController(apiKey string) *CLIController {
+func NewCLIController(chatService *Service) *CLIController {
 	return &CLIController{
-		chatService: NewChatService(apiKey, tools.NewService(tools.AllTools())),
+		chatService: chatService,
 		chatContext: NewChatContext("./"),
 	}
 }
@@ -46,10 +46,10 @@ func (cc *CLIController) StartChat() {
 
 		default:
 			cc.chatContext.AddMessage(input)
-			messageChan := make(chan *Message)
+			messageChan := make(chan *chatapi.Message)
 			go func() {
 				var err error
-				cc.chatContext, err = cc.chatService.CompleteWithHandler(context.Background(), cc.chatContext, MessageHandlerFunc(func(msg *Message) {
+				cc.chatContext, err = cc.chatService.CompleteWithHandler(context.Background(), cc.chatContext, chatapi.MessageHandlerFunc(func(msg *chatapi.Message) {
 					messageChan <- msg
 				}))
 				if err != nil {
@@ -64,7 +64,7 @@ func (cc *CLIController) StartChat() {
 // CompactChat komprimiert den aktuellen Chatverlauf, indem eine Zusammenfassung vom LLM angefordert wird.
 func (cc *CLIController) CompactChat() error {
 	// Create a new message to request summarization
-	summarizeMessage := &Message{
+	summarizeMessage := &chatapi.Message{
 		Role: "user",
 		Content: `
 Fasse den bisherigen Chatverlauf zusammen. Ziel ist es, **alle fachlichen Informationen, Entscheidungen, Daten, Code-Snippets und Kontext** zu erhalten. Ignoriere dabei:
@@ -92,10 +92,10 @@ Fasse den bisherigen Chatverlauf zusammen. Ziel ist es, **alle fachlichen Inform
 	cc.chatContext.AddMessage(summarizeMessage)
 
 	// No need for a message channel here as we don't stream messages to the user
-	var messageChan chan *Message = nil
+	var messageChan chan *chatapi.Message = nil
 
 	// Request completion from the chat service
-	compactedContext, err := cc.chatService.CompleteWithHandler(context.Background(), cc.chatContext, MessageHandlerFunc(func(msg *Message) {
+	compactedContext, err := cc.chatService.CompleteWithHandler(context.Background(), cc.chatContext, chatapi.MessageHandlerFunc(func(msg *chatapi.Message) {
 		messageChan <- msg
 	}))
 	if err != nil {
@@ -119,7 +119,7 @@ Fasse den bisherigen Chatverlauf zusammen. Ziel ist es, **alle fachlichen Inform
 	}
 
 	newContext := &ChatContext{
-		Messages: []*Message{
+		Messages: []*chatapi.Message{
 			{Role: "system", Content: systemPrompt},
 			{Role: "assistant", Content: summary},
 		},
@@ -169,7 +169,7 @@ func (cc *CLIController) ClearContext() error {
 
 	// Create a new context with the system prompt
 	newContext := &ChatContext{
-		Messages: []*Message{
+		Messages: []*chatapi.Message{
 			{Role: "system", Content: systemPrompt},
 		},
 	}
@@ -180,7 +180,7 @@ func (cc *CLIController) ClearContext() error {
 }
 
 // listenForMessages hört auf Nachrichten im Channel und gibt sie aus.
-func (cc *CLIController) listenForMessages(messageChan chan *Message) {
+func (cc *CLIController) listenForMessages(messageChan chan *chatapi.Message) {
 	var lastRole string
 
 	for msg := range messageChan {
@@ -214,11 +214,11 @@ func getColorForRole(role string) string {
 const resetColor = "\033[0m"
 
 // getUserMessage liest eine Nachricht vom Benutzer.
-func (cc *CLIController) getUserMessage(s string) *Message {
+func (cc *CLIController) getUserMessage(s string) *chatapi.Message {
 	reader := bufio.NewReader(os.Stdin)
 	println(s)
 	input, _ := reader.ReadString('\n')
-	return &Message{
+	return &chatapi.Message{
 		Role:    "user",
 		Content: input,
 	}
