@@ -49,22 +49,3 @@ func (e FileExclusions) Match(path string) bool {
 	}
 	return false
 }
-
-// GetTools liefert die Liste der verfügbaren Tools
-func GetTools() []ToolDefinition {
-	return []ToolDefinition{
-		WriteFileTool{}.GetTool(),
-		ListFilesTool{}.GetTool(),
-		ReadFileTool{}.GetTool(),
-		CreateDirTool{}.GetTool(),
-		ReplaceFileLinesTool{}.GetTool(),
-		EditFileTool{}.GetTool(),
-		//ReplaceFileContentTool{}.GetTool(),
-		SearchInFilesTool{}.GetTool(),
-		GitDoTool{}.GetTool(),
-		GitDiffTool{}.GetTool(),
-		StopProcessTool{}.GetTool(),
-		GolangTool{}.GetTool(),
-		SearchInFilesTool{}.GetTool(),
-	}
-}

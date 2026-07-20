@@ -64,7 +64,7 @@ func (p *PubSub[T]) Broadcast(msg T) {
 
 // ChatContext represents a collection of messages in a chat.
 type ChatContext struct {
-	BasePath string
+	BasePath string             // das ist ein relativer Pfad
 	Messages []*chatapi.Message `json:"messages"`
 	cancel   context.CancelFunc
 	pubSub   *PubSub[any]

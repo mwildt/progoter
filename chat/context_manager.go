@@ -59,7 +59,7 @@ func (cm *ContextManager) ListContexts() []string {
 	cm.mu.Lock()
 	defer cm.mu.Unlock()
 
-	ids := make([]string, 0, len(cm.contexts))
+	ids := make([]string, len(cm.contexts))
 	for id := range cm.contexts {
 		ids = append(ids, id)
 	}

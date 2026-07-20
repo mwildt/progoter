@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"github.com/mwildt/progoter/chat"
 	"github.com/mwildt/progoter/chatapi"
 	"github.com/mwildt/progoter/tools"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
@@ -21,14 +23,28 @@ func main() {
 		os.Exit(1)
 	}
 
-	toolService := tools.NewService(
-		tools.AllTools(),
-		tools.WorkspaceDir("./"),
-	)
+	workspaceDir := os.Getenv("WORKSPACE_DIR")
+	if workspaceDir == "" {
+		workspaceDir = "./"
+	}
+
+	if info, err := os.Stat(workspaceDir); errors.Is(err, os.ErrNotExist) || !info.IsDir() {
+		log.Fatalf("workspaceDir %s is not a directory", workspaceDir)
+	}
+
+	slog.Default().Info("starting application", "workspaceDir", workspaceDir)
 
 	apiService := chatapi.NewService(apiKey)
-	chatService := chat.NewChatService(toolService, apiService)
 
+	toolService := tools.NewService(
+		tools.AllTools(),
+		tools.WorkspaceDir(workspaceDir),
+	)
+
+	// wir haben hier eine zyklische Abhängikeit zwischen dem subagent tool und dem tool service. Das keiegen wir auch so einfach nicht weg
+	toolService.Configure(tools.ToolConfig(tools.NewSubagentTool(apiService, toolService)))
+
+	chatService := chat.NewChatService(toolService, apiService)
 	restController := chat.NewRESTController(chatService, chat.NewContextManager())
 
 	mux := http.NewServeMux()
